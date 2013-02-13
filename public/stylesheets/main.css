@@ -24,6 +24,8 @@ h1 {
 	color: #91c293;
 }
 
+.later:focus{outline:none; border: 4px solid black;}
+
 .later:not([type=submit]):not([type=file]) {
   width: 100%;
 	font-size: 22px;
