@@ -18,5 +18,14 @@ h1 {
 
 #footer {
 	position: absolute;
-	bottom: 0px;
+	bottom: 0;
+}
+
+.later{
+	width: 100%;
+	font-size: 22px;
+	font-family: 'PT Sans', sans-serif;
+	margin-left: 20px;
+	margin-right: 20px;
+	border-radius: 4px;
 }
