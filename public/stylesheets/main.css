@@ -35,14 +35,14 @@ h1 {
 	background: #abf099;
 	background: rgba(180, 247, 158,0.5);
   -webkit-box-shadow:
-    inset 0 0 8px  rgba(0,0,0,0.1),
-          0 0 16px rgba(0,0,0,0.1);
+    inset 0 0 8px  rgba(0,0,0,0.2),
+          0 0 16px rgba(0,0,0,0.2);
   -moz-box-shadow:
-    inset 0 0 8px  rgba(0,0,0,0.1),
-          0 0 16px rgba(0,0,0,0.1);
+    inset 0 0 8px  rgba(0,0,0,0.2),
+          0 0 16px rgba(0,0,0,0.2);
   box-shadow:
-    inset 0 0 8px  rgba(0,0,0,0.1),
-          0 0 16px rgba(0,0,0,0.1);
+    inset 0 0 8px  rgba(0,0,0,0.2),
+          0 0 16px rgba(0,0,0,0.2);
   padding: 15px;
   margin: 0 0 10px 0;
 }
