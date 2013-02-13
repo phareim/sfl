@@ -13,8 +13,7 @@ h1 {
 	font-size: 30px;
 }
 
-/*	*:focus{outline:none;}
-	#editor{width:100%; height: 100%;background-color:#343C32}*/
+/*#editor{width:100%; height: 100%;background-color:#343C32}*/
 
 #footer {
 	position: absolute;
@@ -34,15 +33,21 @@ h1 {
 	border: 4px solid white;
 	background: #abf099;
 	background: rgba(180, 247, 158,0.5);
-  -webkit-box-shadow:
+  /*-webkit-box-shadow:
     inset 0 0 8px  rgba(0,0,0,0.2),
           0 0 16px rgba(0,0,0,0.2);
   -moz-box-shadow:
     inset 0 0 8px  rgba(0,0,0,0.2),
-          0 0 16px rgba(0,0,0,0.2);
+          0 0 16px rgba(0,0,0,0.2);*/
   box-shadow:
-    inset 0 0 8px  rgba(0,0,0,0.2),
-          0 0 16px rgba(0,0,0,0.2);
+  inset 0 0 8px  rgba(0,0,0,0.2),
+        0 0 16px rgba(0,0,0,0.2);
   padding: 15px;
   margin: 0 0 10px 0;
+}
+
+.later:not([type=submit]):not([type=file]):focus{
+	box-shadow:
+		inset 0 8px  0  rgba(0,0,0,0.2),
+	        0 16px 0  rgba(0,0,0,0.2);
 }
