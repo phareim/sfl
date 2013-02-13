@@ -1,17 +1,22 @@
 @import url(http://fonts.googleapis.com/css?family=PT+Sans);
 body{
-	font-family: 'PT Sans', sans-serif; 
+	font-family: 'PT Sans', sans-serif;
 	/*color:#F8F7F6; */
-	font-size: 22px; 
-	padding-right: 20%; 
-	padding-left: 20%; 
-	padding-top: 50px; 
+	font-size: 22px;
+	padding-right: 20%;
+	padding-left: 20%;
+	padding-top: 50px;
 	/*background-color:#343C32;*/
-} 
+}
 
 h1 {
 	font-size: 30px;
 }
 
-/*	*:focus{outline:none;} 
+/*	*:focus{outline:none;}
 	#editor{width:100%; height: 100%;background-color:#343C32}*/
+
+#footer {
+	position: absolute;
+	bottom: 0px;
+}
