@@ -1,3 +1,4 @@
+import 'package:english_words/english_words.dart';
 import 'package:flutter/material.dart';
 
 void main() {
@@ -13,14 +14,13 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         primarySwatch: Colors.blueGrey,
       ),
-      home: const MyHomePage(title: 'Codename: SFL'),
+      home: const MyHomePage(title: "lets start with a list of words"),
     );
   }
 }
 
 class MyHomePage extends StatefulWidget {
   const MyHomePage({Key? key, required this.title}) : super(key: key);
-
   final String title;
 
   @override
@@ -29,11 +29,13 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> {
   int _counter = 0;
-  var things = [];
+  // var _things = [];
+  var _wordPair = WordPair.random();
 
   void _incrementCounter() {
     setState(() {
       _counter++;
+      _wordPair = WordPair.random();
     });
   }
 
@@ -47,14 +49,14 @@ class _MyHomePageState extends State<MyHomePage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: <Widget>[
-            const Text(
-              'Du har trykket:',
-            ),
             Text(
               '$_counter',
               style: Theme.of(context).textTheme.headline4,
             ),
-            Text('$_counter')
+            Text(
+              '$_wordPair',
+              style: Theme.of(context).textTheme.headline3,
+            )
           ],
         ),
       ),
