@@ -81,7 +81,8 @@
 </script>
 
 {#if open}
-  <div class="backdrop" on:click|self={reset} role="dialog" aria-modal="true">
+  <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+  <dialog open class="backdrop" on:click|self={reset} on:keydown={(e) => e.key === 'Escape' && reset()}>
     <div class="modal">
       <h2>Capture idea</h2>
 
@@ -145,15 +146,21 @@
         </button>
       </div>
     </div>
-  </div>
+  </dialog>
 {/if}
 
 <style>
-  .backdrop {
+  dialog.backdrop {
     position: fixed; inset: 0;
     background: rgba(0,0,0,0.4);
     display: flex; align-items: center; justify-content: center;
     z-index: 100;
+    border: none;
+    padding: 0;
+    max-width: 100%;
+    max-height: 100%;
+    width: 100%;
+    height: 100%;
   }
   .modal {
     background: #fff;

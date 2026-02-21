@@ -6,7 +6,7 @@ compatibility_flags = ["nodejs_compat"]
 [[d1_databases]]
 binding = "DB"
 database_name = "sfl-db"
-database_id = "FILL_IN_AFTER_CREATE"
+database_id = "d1968d0f-a984-4fd2-bf4e-c2e0d70f242b"
 
 [[r2_buckets]]
 binding = "R2"
