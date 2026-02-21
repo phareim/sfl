@@ -1,0 +1,199 @@
+<script>
+  import { createEventDispatcher } from 'svelte';
+  import { apiFetch } from '../api/client.js';
+  import { createIdea } from '../api/ideas.js';
+  import { createConnection, deleteConnection } from '../api/connections.js';
+
+  export let ideaId;
+  // Array of { connectionId, tagId, tagTitle }
+  export let currentTags = [];
+
+  const dispatch = createEventDispatcher();
+
+  let allTags = [];
+  let input = '';
+  let suggestions = [];
+  let saving = false;
+  let showSuggestions = false;
+
+  async function loadAllTags() {
+    try {
+      const data = await apiFetch('/api/tags');
+      allTags = data.tags ?? [];
+    } catch {}
+  }
+
+  loadAllTags();
+
+  $: {
+    const q = input.trim().toLowerCase();
+    if (q.length === 0) {
+      suggestions = [];
+    } else {
+      const currentTagIds = new Set(currentTags.map((t) => t.tagId));
+      suggestions = allTags
+        .filter((t) => !currentTagIds.has(t.id) && (t.title ?? '').toLowerCase().includes(q))
+        .slice(0, 6);
+    }
+  }
+
+  async function addTag(tag) {
+    saving = true;
+    try {
+      const { connection } = await createConnection({
+        from_id: ideaId,
+        to_id: tag.id,
+        label: 'tagged_with',
+      });
+      currentTags = [...currentTags, { connectionId: connection.id, tagId: tag.id, tagTitle: tag.title }];
+      dispatch('change', currentTags);
+    } finally {
+      saving = false;
+      input = '';
+      showSuggestions = false;
+    }
+  }
+
+  async function createAndAddTag(name) {
+    saving = true;
+    try {
+      const { idea: newTag } = await createIdea({ type: 'tag', title: name, data: {} });
+      allTags = [...allTags, newTag];
+      await addTag(newTag);
+    } finally {
+      saving = false;
+    }
+  }
+
+  async function removeTag(entry) {
+    await deleteConnection(entry.connectionId);
+    currentTags = currentTags.filter((t) => t.connectionId !== entry.connectionId);
+    dispatch('change', currentTags);
+  }
+
+  function onKeydown(e) {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const q = input.trim();
+      if (!q) return;
+      const exact = suggestions.find((t) => (t.title ?? '').toLowerCase() === q.toLowerCase());
+      if (exact) {
+        addTag(exact);
+      } else {
+        createAndAddTag(q);
+      }
+    } else if (e.key === 'Escape') {
+      showSuggestions = false;
+    }
+  }
+</script>
+
+<div class="tag-editor">
+  <div class="current-tags">
+    {#each currentTags as entry (entry.connectionId)}
+      <span class="tag-chip">
+        #{entry.tagTitle ?? entry.tagId}
+        <button class="remove" on:click={() => removeTag(entry)} title="Remove tag">×</button>
+      </span>
+    {/each}
+  </div>
+
+  <div class="input-wrap">
+    <input
+      type="text"
+      placeholder="Add tag… (Enter to create)"
+      bind:value={input}
+      on:keydown={onKeydown}
+      on:focus={() => (showSuggestions = true)}
+      on:blur={() => setTimeout(() => (showSuggestions = false), 150)}
+      disabled={saving}
+    />
+    {#if showSuggestions && (suggestions.length > 0 || input.trim())}
+      <ul class="suggestions">
+        {#each suggestions as tag}
+          <li>
+            <button type="button" on:click={() => addTag(tag)}>#{tag.title}</button>
+          </li>
+        {/each}
+        {#if input.trim() && !suggestions.find((t) => (t.title ?? '').toLowerCase() === input.trim().toLowerCase())}
+          <li class="create-new">
+            <button type="button" on:click={() => createAndAddTag(input.trim())}>
+              Create <strong>#{input.trim()}</strong>
+            </button>
+          </li>
+        {/if}
+      </ul>
+    {/if}
+  </div>
+</div>
+
+<style>
+  .tag-editor { display: flex; flex-direction: column; gap: 8px; }
+
+  .current-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+
+  .tag-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 10px;
+    background: #e8f0fe;
+    color: #1a73e8;
+    border-radius: 999px;
+    font-size: 0.82rem;
+    font-weight: 500;
+  }
+
+  .remove {
+    background: none;
+    border: none;
+    color: #1a73e8;
+    cursor: pointer;
+    font-size: 1rem;
+    line-height: 1;
+    padding: 0;
+    opacity: 0.6;
+  }
+  .remove:hover { opacity: 1; }
+
+  .input-wrap { position: relative; }
+
+  input {
+    width: 100%;
+    padding: 7px 10px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 0.88rem;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  input:focus { border-color: #1a73e8; }
+
+  .suggestions {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0; right: 0;
+    background: #fff;
+    border: 1px solid #e0e0e0;
+    border-radius: 6px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+    list-style: none;
+    margin: 0; padding: 4px 0;
+    z-index: 50;
+  }
+
+  .suggestions li button {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 7px 12px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 0.88rem;
+    color: #1a1a1a;
+  }
+  .suggestions li button:hover { background: #f5f5f5; }
+
+  .create-new button { color: #1a73e8; }
+</style>

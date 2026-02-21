@@ -1,7 +1,7 @@
 <script>
-  import TagPill from './TagPill.svelte';
   import NoteEditor from './NoteEditor.svelte';
   import MediaGallery from './MediaGallery.svelte';
+  import TagEditor from './TagEditor.svelte';
 
   export let idea;
   export let data = {};
@@ -13,9 +13,14 @@
     return new Date(ms).toLocaleString();
   }
 
-  $: tags = connections.filter(
-    (c) => c.label === 'tagged_with' && (c.to_type === 'tag' || c.from_type === 'tag')
-  ).map((c) => (c.to_type === 'tag' ? { id: c.to_id, title: c.to_title } : { id: c.from_id, title: c.from_title }));
+  // Build editable tag list: { connectionId, tagId, tagTitle }
+  $: currentTags = connections
+    .filter((c) => c.label === 'tagged_with' && (c.to_type === 'tag' || c.from_type === 'tag'))
+    .map((c) =>
+      c.to_type === 'tag'
+        ? { connectionId: c.id, tagId: c.to_id, tagTitle: c.to_title }
+        : { connectionId: c.id, tagId: c.from_id, tagTitle: c.from_title }
+    );
 
   $: relatedConnections = connections.filter((c) => c.label !== 'tagged_with');
 </script>
@@ -30,13 +35,9 @@
     {#if idea.url}
       <a class="source-url" href={idea.url} target="_blank" rel="noopener">{idea.url}</a>
     {/if}
-    {#if tags.length > 0}
-      <div class="tags">
-        {#each tags as tag}
-          <TagPill {tag} />
-        {/each}
-      </div>
-    {/if}
+    <div class="tags">
+      <TagEditor ideaId={idea.id} {currentTags} />
+    </div>
   </header>
 
   {#if data.content}
