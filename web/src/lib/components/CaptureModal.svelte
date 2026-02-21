@@ -2,6 +2,7 @@
   import { createEventDispatcher } from 'svelte';
   import { createIdea } from '../api/ideas.js';
   import { createConnection } from '../api/connections.js';
+  import { apiFetch } from '../api/client.js';
 
   export let open = false;
   export let tags = [];
@@ -15,7 +16,14 @@
   let content = '';
   let selectedTags = [];
   let saving = false;
+  let savingStatus = '';
   let error = null;
+  let imageFile = null;   // File object when user picks a local file
+
+  function onFileChange(e) {
+    imageFile = e.target.files[0] ?? null;
+    if (imageFile && !title) title = imageFile.name.replace(/\.[^.]+$/, '');
+  }
 
   const TYPES = ['note', 'page', 'quote', 'book', 'tweet', 'image', 'text'];
 
@@ -35,6 +43,7 @@
     saving = true;
     error = null;
     try {
+      savingStatus = 'Saving…';
       const { idea } = await createIdea({
         type,
         title: title || null,
@@ -43,7 +52,25 @@
         data: buildData(),
       });
 
+      // Upload image to R2 if this is an image type
+      if (type === 'image') {
+        if (imageFile) {
+          savingStatus = 'Uploading image…';
+          const form = new FormData();
+          form.append('file', imageFile);
+          await apiFetch(`/api/ideas/${idea.id}/media`, { method: 'POST', body: form });
+        } else if (url) {
+          savingStatus = 'Fetching image…';
+          await apiFetch(`/api/ideas/${idea.id}/media/fetch`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url }),
+          });
+        }
+      }
+
       // Attach tags
+      savingStatus = 'Tagging…';
       for (const tag of selectedTags) {
         await createConnection({ from_id: idea.id, to_id: tag.id, label: 'tagged_with' });
       }
@@ -54,6 +81,7 @@
       error = e.message;
     } finally {
       saving = false;
+      savingStatus = '';
     }
   }
 
@@ -64,6 +92,7 @@
     summary = '';
     content = '';
     selectedTags = [];
+    imageFile = null;
     open = false;
   }
 
@@ -105,10 +134,25 @@
         </label>
       {/if}
 
-      {#if type !== 'book'}
+      {#if type === 'image'}
+        <label>
+          Upload file <span class="optional">(or paste a URL above)</span>
+          <input type="file" accept="image/*,video/*" on:change={onFileChange} />
+        </label>
+        {#if imageFile}
+          <p class="file-hint">📎 {imageFile.name} ({(imageFile.size / 1024).toFixed(0)} KB)</p>
+        {/if}
+      {/if}
+
+      {#if type !== 'book' && type !== 'image'}
         <label>
           Content
           <textarea bind:value={content} rows="5" placeholder="Content..."></textarea>
+        </label>
+      {:else if type === 'image'}
+        <label>
+          Caption
+          <input type="text" bind:value={content} placeholder="Optional caption" />
         </label>
       {/if}
 
@@ -142,7 +186,7 @@
       <div class="footer">
         <button type="button" on:click={reset}>Cancel</button>
         <button type="button" class="primary" on:click={save} disabled={saving}>
-          {saving ? 'Saving...' : 'Save'}
+          {saving ? savingStatus : 'Save'}
         </button>
       </div>
     </div>
@@ -204,4 +248,6 @@
   }
   button.primary { background: #1a73e8; color: #fff; border-color: #1a73e8; }
   button:disabled { opacity: 0.5; cursor: default; }
+  .optional { font-weight: 400; color: #aaa; }
+  .file-hint { margin: -8px 0 6px; font-size: 0.8rem; color: #555; }
 </style>
