@@ -98,18 +98,62 @@ async function handleSaveSelection(info, tab) {
   return idea;
 }
 
+/**
+ * Extract post text from a social page.
+ * First tries the content script (already running); falls back to
+ * chrome.scripting.executeScript which works even on pages that were
+ * open before the extension was installed or last reloaded.
+ */
+async function extractPostText(tabId, tabUrl) {
+  // Attempt 1: message the content script
+  try {
+    const resp = await chrome.tabs.sendMessage(tabId, { type: 'EXTRACT_POST' });
+    if (resp?.text) return resp.text;
+  } catch { /* content script not ready */ }
+
+  // Attempt 2: inject extraction logic directly into the page
+  try {
+    const [{ result }] = await chrome.scripting.executeScript({
+      target: { tabId },
+      func: (host) => {
+        if (host === 'x.com' || host === 'twitter.com') {
+          const articles = document.querySelectorAll('article[data-testid="tweet"]');
+          for (const a of articles) {
+            const t = a.querySelector('[data-testid="tweetText"]');
+            if (t) return t.innerText.trim();
+          }
+        }
+        if (host.includes('threads')) {
+          const h1 = document.querySelector('h1');
+          if (h1?.innerText?.trim()) return h1.innerText.trim();
+          for (const el of document.querySelectorAll('[dir="auto"]')) {
+            const t = el.innerText?.trim();
+            if (t && t.length > 20) return t;
+          }
+        }
+        if (host === 'bsky.app') {
+          const el = document.querySelector('[data-testid="postText"]');
+          if (el) return el.innerText.trim();
+          for (const el of document.querySelectorAll('[dir="auto"]')) {
+            const t = el.innerText?.trim();
+            if (t && t.length > 20) return t;
+          }
+        }
+        return '';
+      },
+      args: [new URL(tabUrl).hostname],
+    });
+    return result ?? '';
+  } catch { /* scripting API unavailable (e.g. chrome:// page) */ }
+
+  return '';
+}
+
 async function handleSavePage(info, tab) {
   const social = detectSocialPost(tab.url);
 
   if (social.isSocialPost) {
-    // Try to extract post text from the page DOM
-    let postText = '';
-    try {
-      const resp = await chrome.tabs.sendMessage(tab.id, { type: 'EXTRACT_POST' });
-      postText = resp?.text ?? '';
-    } catch {
-      // Content script not available (e.g. extension just installed) — proceed without text
-    }
+    const postText = await extractPostText(tab.id, tab.url);
 
     const { idea } = await apiPost('/api/ideas', {
       type: 'tweet',
