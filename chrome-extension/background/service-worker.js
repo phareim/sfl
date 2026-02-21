@@ -3,6 +3,8 @@
  * Handles context menus and API calls.
  */
 
+import { detectSocialPost } from './social.js';
+
 async function getConfig() {
   return new Promise((resolve) =>
     chrome.storage.sync.get(['sfl_api_url', 'sfl_api_key'], (items) => resolve(items))
@@ -97,6 +99,35 @@ async function handleSaveSelection(info, tab) {
 }
 
 async function handleSavePage(info, tab) {
+  const social = detectSocialPost(tab.url);
+
+  if (social.isSocialPost) {
+    // Try to extract post text from the page DOM
+    let postText = '';
+    try {
+      const resp = await chrome.tabs.sendMessage(tab.id, { type: 'EXTRACT_POST' });
+      postText = resp?.text ?? '';
+    } catch {
+      // Content script not available (e.g. extension just installed) — proceed without text
+    }
+
+    const { idea } = await apiPost('/api/ideas', {
+      type: 'tweet',
+      title: postText ? postText.slice(0, 80) : tab.title,
+      url: tab.url,
+      summary: postText.slice(0, 200) || tab.title,
+      data: {
+        url: tab.url,
+        text: postText,
+        author: social.author,
+        platform: social.platform,
+        post_id: social.postId,
+        page_title: tab.title,
+      },
+    });
+    return idea;
+  }
+
   const { idea } = await apiPost('/api/ideas', {
     type: 'page',
     title: tab.title,

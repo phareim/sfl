@@ -2,6 +2,21 @@
  * SFL Popup — quick-save current page with optional tags.
  */
 
+// Inline social detection (can't import modules in non-module popup scripts)
+const SOCIAL_PATTERNS = [
+  { platform: 'twitter',  re: /^https?:\/\/(?:x\.com|twitter\.com)\/@?([\w]+)\/status\/(\d+)/, author: (m) => '@' + m[1] },
+  { platform: 'threads',  re: /^https?:\/\/(?:www\.)?threads\.(?:com|net)\/@([\w.]+)\/post\/([\w]+)/, author: (m) => '@' + m[1] },
+  { platform: 'bluesky',  re: /^https?:\/\/bsky\.app\/profile\/([\w.@]+)\/post\/([\w]+)/, author: (m) => m[1] },
+];
+
+function detectSocialPost(url) {
+  for (const { platform, re, author } of SOCIAL_PATTERNS) {
+    const m = url?.match(re);
+    if (m) return { isSocialPost: true, platform, author: author(m) };
+  }
+  return { isSocialPost: false };
+}
+
 let tags = [];
 let selectedTags = new Set();
 
@@ -11,12 +26,8 @@ async function getConfig() {
   );
 }
 
-function show(id) {
-  document.getElementById(id).classList.remove('hidden');
-}
-function hide(id) {
-  document.getElementById(id).classList.add('hidden');
-}
+function show(id) { document.getElementById(id).classList.remove('hidden'); }
+function hide(id) { document.getElementById(id).classList.add('hidden'); }
 
 async function init() {
   const { sfl_api_url, sfl_api_key } = await getConfig();
@@ -28,20 +39,40 @@ async function init() {
 
   show('save-form');
 
-  // Pre-fill current tab
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   document.getElementById('title').value = tab.title ?? '';
   document.getElementById('url').value = tab.url ?? '';
 
-  // Try to get selected text from content script
-  try {
-    const response = await chrome.tabs.sendMessage(tab.id, { type: 'GET_SELECTION' });
-    if (response?.selection) {
-      document.getElementById('type').value = 'quote';
-      document.getElementById('content').value = response.selection;
-    }
-  } catch {
-    // Content script may not be injected on restricted pages; ignore
+  const social = detectSocialPost(tab.url);
+
+  if (social.isSocialPost) {
+    // Auto-select tweet type
+    document.getElementById('type').value = 'tweet';
+
+    // Try to extract post text from the page
+    try {
+      const resp = await chrome.tabs.sendMessage(tab.id, { type: 'EXTRACT_POST' });
+      if (resp?.text) {
+        document.getElementById('content').value = resp.text;
+        document.getElementById('title').value = resp.text.slice(0, 80);
+      }
+    } catch { /* content script unavailable */ }
+
+    // Show author hint
+    const hint = document.createElement('p');
+    hint.className = 'social-hint';
+    hint.textContent = `${social.platform} · ${social.author}`;
+    document.getElementById('save-form').insertBefore(hint, document.getElementById('save-form').firstChild);
+
+  } else {
+    // Try to get selected text — if found, switch to quote
+    try {
+      const response = await chrome.tabs.sendMessage(tab.id, { type: 'GET_SELECTION' });
+      if (response?.selection) {
+        document.getElementById('type').value = 'quote';
+        document.getElementById('content').value = response.selection;
+      }
+    } catch { /* ignore */ }
   }
 
   // Load tags
@@ -84,15 +115,20 @@ document.getElementById('save-form').addEventListener('submit', async (e) => {
   const title = document.getElementById('title').value;
   const url = document.getElementById('url').value;
   const content = document.getElementById('content').value;
+  const social = detectSocialPost(url);
 
   let data;
   switch (type) {
-    case 'page': data = { url, title }; break;
+    case 'page':  data = { url, title }; break;
     case 'quote': data = { text: content, source_url: url }; break;
-    case 'note': data = { content }; break;
-    case 'tweet': data = { url, text: content }; break;
-    case 'book': data = { title }; break;
-    default: data = { content };
+    case 'note':  data = { content }; break;
+    case 'tweet': data = {
+      url, text: content,
+      author: social.author ?? null,
+      platform: social.platform ?? null,
+    }; break;
+    case 'book':  data = { title }; break;
+    default:      data = { content };
   }
 
   const resp = await new Promise((res) =>
@@ -116,7 +152,6 @@ document.getElementById('save-form').addEventListener('submit', async (e) => {
     return;
   }
 
-  // Attach tags
   for (const tagId of selectedTags) {
     await new Promise((res) =>
       chrome.runtime.sendMessage({

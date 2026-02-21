@@ -69,3 +69,4 @@ button[type="submit"]:disabled { opacity: 0.6; cursor: default; }
 #not-configured a { color: #1a73e8; }
 
 .hidden { display: none !important; }
+.social-hint { padding: 4px 0 10px; font-size: 0.78rem; color: #1a73e8; font-weight: 500; }
