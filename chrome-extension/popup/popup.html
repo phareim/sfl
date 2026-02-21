@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>SFL — Save For Later</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <div class="header">
+      <span class="logo">SFL</span>
+      <a class="options-link" href="#" id="open-options">⚙</a>
+    </div>
+
+    <div id="not-configured" class="hidden">
+      <p>Not configured. <a href="#" id="go-options">Open settings →</a></p>
+    </div>
+
+    <form id="save-form" class="hidden">
+      <label>
+        Type
+        <select id="type">
+          <option value="page">Page</option>
+          <option value="quote">Quote / Selection</option>
+          <option value="note">Note</option>
+          <option value="book">Book</option>
+          <option value="tweet">Tweet</option>
+          <option value="image">Image</option>
+        </select>
+      </label>
+
+      <label>
+        Title
+        <input type="text" id="title" placeholder="Title" />
+      </label>
+
+      <label>
+        URL
+        <input type="url" id="url" placeholder="https://..." />
+      </label>
+
+      <label id="content-label">
+        Content / Note
+        <textarea id="content" rows="3" placeholder="Content or note..."></textarea>
+      </label>
+
+      <div class="tag-section" id="tag-section">
+        <span class="tag-label">Tags</span>
+        <div id="tag-list" class="tag-list"></div>
+      </div>
+
+      <p id="error" class="error hidden"></p>
+
+      <button type="submit" id="save-btn">Save to SFL</button>
+    </form>
+
+    <div id="success" class="hidden">
+      <p class="success-msg">✓ Saved!</p>
+    </div>
+
+    <script src="popup.js" type="module"></script>
+  </body>
+</html>

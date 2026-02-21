@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>SFL — Settings</title>
+    <style>
+      * { box-sizing: border-box; }
+      body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 480px; margin: 40px auto; padding: 0 20px; color: #1a1a1a; }
+      h1 { font-size: 1.4rem; margin-bottom: 28px; }
+      label { display: flex; flex-direction: column; gap: 6px; margin-bottom: 18px; font-size: 0.9rem; font-weight: 500; }
+      input { padding: 9px 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 0.9rem; outline: none; }
+      input:focus { border-color: #1a73e8; }
+      .hint { font-size: 0.78rem; color: #aaa; font-weight: 400; }
+      button { padding: 9px 22px; background: #1a73e8; color: #fff; border: none; border-radius: 6px; font-size: 0.9rem; font-weight: 600; cursor: pointer; }
+      button:hover { background: #1557b0; }
+      #status { margin-top: 14px; color: #2e7d32; font-size: 0.9rem; }
+    </style>
+  </head>
+  <body>
+    <h1>SFL Settings</h1>
+    <form id="options-form">
+      <label>
+        API URL
+        <input type="url" id="api-url" placeholder="https://sfl-api.your-worker.workers.dev" required />
+        <span class="hint">The deployed Cloudflare Worker URL.</span>
+      </label>
+      <label>
+        API Key
+        <input type="password" id="api-key" placeholder="Your API_KEY secret" required />
+        <span class="hint">Set with <code>wrangler secret put API_KEY</code>.</span>
+      </label>
+      <button type="submit">Save</button>
+    </form>
+    <p id="status"></p>
+    <script src="options.js"></script>
+  </body>
+</html>

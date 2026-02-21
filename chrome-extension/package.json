@@ -1,0 +1,6 @@
+{
+  "name": "sfl-chrome-extension",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Save For Later — Chrome Extension (Manifest V3)"
+}

@@ -1,0 +1,12 @@
+{
+  "name": "sfl",
+  "private": true,
+  "workspaces": [
+    "api",
+    "web",
+    "chrome-extension"
+  ],
+  "engines": {
+    "node": ">=20"
+  }
+}

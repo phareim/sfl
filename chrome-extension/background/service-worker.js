@@ -1,0 +1,175 @@
+/**
+ * SFL Chrome Extension — Service Worker (Manifest V3)
+ * Handles context menus and API calls.
+ */
+
+async function getConfig() {
+  return new Promise((resolve) =>
+    chrome.storage.sync.get(['sfl_api_url', 'sfl_api_key'], (items) => resolve(items))
+  );
+}
+
+async function apiPost(path, body) {
+  const { sfl_api_url, sfl_api_key } = await getConfig();
+  if (!sfl_api_url || !sfl_api_key) {
+    throw new Error('SFL not configured. Open the extension options page.');
+  }
+  const url = `${sfl_api_url.replace(/\/$/, '')}${path}`;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${sfl_api_key}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error(err.error ?? `HTTP ${res.status}`);
+  }
+  return res.json();
+}
+
+async function apiGet(path) {
+  const { sfl_api_url, sfl_api_key } = await getConfig();
+  if (!sfl_api_url || !sfl_api_key) return null;
+  const url = `${sfl_api_url.replace(/\/$/, '')}${path}`;
+  const res = await fetch(url, {
+    headers: { 'Authorization': `Bearer ${sfl_api_key}` },
+  });
+  if (!res.ok) return null;
+  return res.json();
+}
+
+// Register context menus on install
+chrome.runtime.onInstalled.addListener(() => {
+  chrome.contextMenus.create({
+    id: 'sfl-save-selection',
+    title: 'Save selection to SFL',
+    contexts: ['selection'],
+  });
+
+  chrome.contextMenus.create({
+    id: 'sfl-save-page',
+    title: 'Save page to SFL',
+    contexts: ['page'],
+  });
+
+  chrome.contextMenus.create({
+    id: 'sfl-save-image',
+    title: 'Save image to SFL',
+    contexts: ['image'],
+  });
+});
+
+chrome.contextMenus.onClicked.addListener(async (info, tab) => {
+  try {
+    if (info.menuItemId === 'sfl-save-selection') {
+      await handleSaveSelection(info, tab);
+    } else if (info.menuItemId === 'sfl-save-page') {
+      await handleSavePage(info, tab);
+    } else if (info.menuItemId === 'sfl-save-image') {
+      await handleSaveImage(info, tab);
+    }
+    chrome.action.setBadgeText({ text: '✓', tabId: tab.id });
+    setTimeout(() => chrome.action.setBadgeText({ text: '', tabId: tab.id }), 2000);
+  } catch (err) {
+    console.error('[SFL]', err);
+    chrome.action.setBadgeText({ text: '!', tabId: tab.id });
+    setTimeout(() => chrome.action.setBadgeText({ text: '', tabId: tab.id }), 3000);
+  }
+});
+
+async function handleSaveSelection(info, tab) {
+  const selectedText = info.selectionText ?? '';
+  const { idea } = await apiPost('/api/ideas', {
+    type: 'quote',
+    title: selectedText.slice(0, 80),
+    url: tab.url,
+    summary: selectedText.slice(0, 200),
+    data: {
+      text: selectedText,
+      source_url: tab.url,
+      page_title: tab.title,
+    },
+  });
+  return idea;
+}
+
+async function handleSavePage(info, tab) {
+  const { idea } = await apiPost('/api/ideas', {
+    type: 'page',
+    title: tab.title,
+    url: tab.url,
+    summary: tab.title,
+    data: {
+      url: tab.url,
+      title: tab.title,
+    },
+  });
+  return idea;
+}
+
+async function handleSaveImage(info, tab) {
+  const imgUrl = info.srcUrl;
+  if (!imgUrl) return;
+
+  // Create the idea first
+  const { idea } = await apiPost('/api/ideas', {
+    type: 'image',
+    title: `Image from ${tab.title}`,
+    url: imgUrl,
+    summary: tab.title,
+    data: {
+      source_url: imgUrl,
+      page_url: tab.url,
+      caption: tab.title,
+    },
+  });
+
+  // Try to upload the image binary to R2
+  try {
+    const { sfl_api_url, sfl_api_key } = await getConfig();
+    const imgRes = await fetch(imgUrl);
+    if (imgRes.ok) {
+      const blob = await imgRes.blob();
+      const filename = imgUrl.split('/').pop().split('?')[0] || 'image.jpg';
+      const form = new FormData();
+      form.append('file', blob, filename);
+      await fetch(`${sfl_api_url.replace(/\/$/, '')}/api/ideas/${idea.id}/media`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${sfl_api_key}` },
+        body: form,
+      });
+    }
+  } catch (uploadErr) {
+    // Non-fatal: the idea is already saved, just without the binary
+    console.warn('[SFL] Image upload failed:', uploadErr);
+  }
+
+  return idea;
+}
+
+// Handle messages from popup/content scripts
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.type === 'SAVE_IDEA') {
+    apiPost('/api/ideas', message.payload)
+      .then(({ idea }) => sendResponse({ ok: true, idea }))
+      .catch((err) => sendResponse({ ok: false, error: err.message }));
+    return true; // keep channel open for async response
+  }
+
+  if (message.type === 'GET_TAGS') {
+    apiGet('/api/tags')
+      .then((data) => sendResponse({ ok: true, tags: data?.tags ?? [] }))
+      .catch(() => sendResponse({ ok: true, tags: [] }));
+    return true;
+  }
+
+  if (message.type === 'CREATE_CONNECTION') {
+    apiPost('/api/connections', message.payload)
+      .then(({ connection }) => sendResponse({ ok: true, connection }))
+      .catch((err) => sendResponse({ ok: false, error: err.message }));
+    return true;
+  }
+});
