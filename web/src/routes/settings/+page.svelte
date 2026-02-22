@@ -68,7 +68,7 @@
     align-self: flex-start;
     padding: 9px 22px;
     background: var(--accent);
-    color: #0b0d14;
+    color: var(--ink);
     border: none;
     border-radius: var(--r);
     font-size: 0.9rem;

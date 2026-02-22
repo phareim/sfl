@@ -77,17 +77,44 @@
 
 <style>
   :global(*, *::before, *::after) { box-sizing: border-box; }
+
+  /* Shared tokens — don't change with theme */
   :global(:root) {
-    --bg: #0b0d14;
-    --surface: #13161f;
-    --stroke: #252836;
-    --text: #efefed;
-    --muted: #6b7280;
     --accent: #c4f442;
+    --ink: #14161e;   /* always-dark text on accent bg */
     --r: 4px;
-    --shadow: 3px 3px 0 #1c1f2c;
-    --shadow-hover: 5px 5px 0 #1c1f2c;
   }
+
+  @media (prefers-color-scheme: light) {
+    :global(:root) {
+      --bg: #f4f2ee;
+      --surface: #ffffff;
+      --stroke: #14161e;
+      --text: #14161e;
+      --muted: #7c7c8a;
+      --shadow: 3px 3px 0 #14161e;
+      --shadow-hover: 5px 5px 0 #14161e;
+      --shadow-strong: 8px 8px 0 #14161e;
+      --tag-surface: #1c2033;
+      --tag-stroke: #3a4460;
+    }
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :global(:root) {
+      --bg: #1c2033;
+      --surface: #252d42;
+      --stroke: #3a4460;
+      --text: #eeedf0;
+      --muted: #8891a8;
+      --shadow: 3px 3px 0 #141826;
+      --shadow-hover: 5px 5px 0 #141826;
+      --shadow-strong: 8px 8px 0 #141826;
+      --tag-surface: #131829;
+      --tag-stroke: #2a3050;
+    }
+  }
+
   :global(body) {
     margin: 0;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
@@ -113,8 +140,8 @@
     height: 52px;
     border-radius: var(--r);
     background: var(--accent);
-    color: #0b0d14;
-    border: 2px solid #0b0d14;
+    color: var(--ink);
+    border: 2px solid var(--ink);
     font-size: 1.4rem;
     font-weight: 900;
     line-height: 1;
@@ -180,11 +207,11 @@
     transition: color 0.1s;
   }
   li a:hover { color: var(--text); }
-  li.active a { background: var(--accent); color: #0b0d14; font-weight: 700; }
+  li.active a { background: var(--accent); color: var(--ink); font-weight: 700; }
 
   .capture-btn {
     background: var(--accent);
-    color: #0b0d14;
+    color: var(--ink);
     border: none;
     border-radius: var(--r);
     padding: 10px 14px;
