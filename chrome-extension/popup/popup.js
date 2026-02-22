@@ -2,6 +2,17 @@
  * SFL Popup — quick-save current page with optional tags.
  */
 
+// Inline video detection
+function detectVideo(url) {
+  let m = url?.match(/[?&]v=([\w-]{11})/);
+  if (m && url.includes('youtube.com')) return { isVideo: true, platform: 'youtube', video_id: m[1] };
+  m = url?.match(/youtu\.be\/([\w-]{11})/);
+  if (m) return { isVideo: true, platform: 'youtube', video_id: m[1] };
+  m = url?.match(/youtube\.com\/shorts\/([\w-]{11})/);
+  if (m) return { isVideo: true, platform: 'youtube', video_id: m[1] };
+  return { isVideo: false };
+}
+
 // Inline social detection (can't import modules in non-module popup scripts)
 const SOCIAL_PATTERNS = [
   { platform: 'twitter',  re: /^https?:\/\/(?:x\.com|twitter\.com)\/@?([\w]+)\/status\/(\d+)/, author: (m) => '@' + m[1] },
@@ -43,9 +54,14 @@ async function init() {
   document.getElementById('title').value = tab.title ?? '';
   document.getElementById('url').value = tab.url ?? '';
 
+  const video = detectVideo(tab.url);
   const social = detectSocialPost(tab.url);
 
-  if (social.isSocialPost) {
+  if (video.isVideo) {
+    document.getElementById('type').value = 'video';
+    document.getElementById('title').value =
+      tab.title.replace(/\s*[-–|]\s*YouTube\s*$/, '').trim() || tab.title;
+  } else if (social.isSocialPost) {
     // Auto-select tweet type
     document.getElementById('type').value = 'tweet';
 
@@ -117,9 +133,16 @@ document.getElementById('save-form').addEventListener('submit', async (e) => {
   const content = document.getElementById('content').value;
   const social = detectSocialPost(url);
 
+  const video = detectVideo(url);
   let data;
   switch (type) {
     case 'page':  data = { url, title }; break;
+    case 'video': data = {
+      url,
+      platform: video.platform ?? 'youtube',
+      video_id: video.video_id ?? null,
+      page_title: title,
+    }; break;
     case 'quote': data = { text: content, source_url: url }; break;
     case 'note':  data = { content }; break;
     case 'tweet': data = {

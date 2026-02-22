@@ -2,6 +2,23 @@
  * Social post URL detection and metadata extraction.
  */
 
+/**
+ * Detect whether a URL is a YouTube video.
+ * Returns { isVideo, platform, video_id } or { isVideo: false }.
+ */
+export function detectVideo(url) {
+  // youtube.com/watch?v=ID
+  let m = url?.match(/[?&]v=([\w-]{11})/);
+  if (m && url.includes('youtube.com')) return { isVideo: true, platform: 'youtube', video_id: m[1] };
+  // youtu.be/ID
+  m = url?.match(/youtu\.be\/([\w-]{11})/);
+  if (m) return { isVideo: true, platform: 'youtube', video_id: m[1] };
+  // youtube.com/shorts/ID
+  m = url?.match(/youtube\.com\/shorts\/([\w-]{11})/);
+  if (m) return { isVideo: true, platform: 'youtube', video_id: m[1] };
+  return { isVideo: false };
+}
+
 const PATTERNS = [
   {
     platform: 'twitter',

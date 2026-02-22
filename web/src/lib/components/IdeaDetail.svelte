@@ -23,6 +23,20 @@
     );
 
   $: relatedConnections = connections.filter((c) => c.label !== 'tagged_with');
+
+  $: youtubeEmbedId = (() => {
+    if (idea.type !== 'video') return null;
+    if (data?.video_id && data?.platform === 'youtube') return data.video_id;
+    // Fallback: parse from url
+    const url = idea.url ?? '';
+    let m = url.match(/[?&]v=([\w-]{11})/);
+    if (m) return m[1];
+    m = url.match(/youtu\.be\/([\w-]{11})/);
+    if (m) return m[1];
+    m = url.match(/youtube\.com\/shorts\/([\w-]{11})/);
+    if (m) return m[1];
+    return null;
+  })();
 </script>
 
 <article class="detail">
@@ -39,6 +53,18 @@
       <TagEditor ideaId={idea.id} {currentTags} />
     </div>
   </header>
+
+  {#if youtubeEmbedId}
+    <section class="video-embed">
+      <iframe
+        src="https://www.youtube-nocookie.com/embed/{youtubeEmbedId}"
+        title={idea.title ?? 'YouTube video'}
+        frameborder="0"
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+        allowfullscreen
+      ></iframe>
+    </section>
+  {/if}
 
   {#if data.content}
     <section class="content">
@@ -102,4 +128,20 @@
   .conn a { color: #1a73e8; text-decoration: none; }
   .conn a:hover { text-decoration: underline; }
   .label { color: #aaa; font-size: 0.8rem; margin-left: 6px; }
+  .video-embed {
+    margin: 24px 0;
+    position: relative;
+    padding-bottom: 56.25%; /* 16:9 */
+    height: 0;
+    overflow: hidden;
+    border-radius: 8px;
+    background: #000;
+  }
+  .video-embed iframe {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    border: 0;
+    border-radius: 8px;
+  }
 </style>

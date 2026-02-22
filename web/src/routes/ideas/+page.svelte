@@ -11,7 +11,7 @@
   let searchQuery = '';
   let filterType = '';
 
-  const TYPES = ['', 'page', 'tweet', 'book', 'quote', 'note', 'image', 'text', 'tag'];
+  const TYPES = ['', 'page', 'video', 'tweet', 'book', 'quote', 'note', 'image', 'text', 'tag'];
 
   async function load(reset = true) {
     loading = true;

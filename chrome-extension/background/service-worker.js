@@ -3,7 +3,7 @@
  * Handles context menus and API calls.
  */
 
-import { detectSocialPost } from './social.js';
+import { detectSocialPost, detectVideo } from './social.js';
 
 async function getConfig() {
   return new Promise((resolve) =>
@@ -150,6 +150,25 @@ async function extractPostText(tabId, tabUrl) {
 }
 
 async function handleSavePage(info, tab) {
+  const video = detectVideo(tab.url);
+
+  if (video.isVideo) {
+    const title = tab.title.replace(/\s*[-–|]\s*YouTube\s*$/, '').trim() || tab.title;
+    const { idea } = await apiPost('/api/ideas', {
+      type: 'video',
+      title,
+      url: tab.url,
+      summary: title,
+      data: {
+        url: tab.url,
+        platform: video.platform,
+        video_id: video.video_id,
+        page_title: tab.title,
+      },
+    });
+    return idea;
+  }
+
   const social = detectSocialPost(tab.url);
 
   if (social.isSocialPost) {

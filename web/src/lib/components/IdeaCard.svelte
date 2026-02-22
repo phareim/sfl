@@ -16,7 +16,21 @@
     image: '🖼️',
     tag: '🏷️',
     text: '📄',
+    video: '▶️',
   };
+
+  function youtubeId(url) {
+    if (!url) return null;
+    let m = url.match(/[?&]v=([\w-]{11})/);
+    if (m) return m[1];
+    m = url.match(/youtu\.be\/([\w-]{11})/);
+    if (m) return m[1];
+    m = url.match(/youtube\.com\/shorts\/([\w-]{11})/);
+    if (m) return m[1];
+    return null;
+  }
+
+  $: videoId = idea.type === 'video' ? youtubeId(idea.url) : null;
 
   function icon(type) {
     return TYPE_ICONS[type] ?? '💡';
@@ -34,6 +48,16 @@
     <span class="date">{formatDate(idea.created_at)}</span>
   </div>
   <h3 class="title">{idea.title ?? '(untitled)'}</h3>
+  {#if videoId}
+    <div class="thumbnail">
+      <img
+        src="https://img.youtube.com/vi/{videoId}/hqdefault.jpg"
+        alt={idea.title ?? ''}
+        loading="lazy"
+      />
+      <span class="play-badge">▶</span>
+    </div>
+  {/if}
   {#if idea.summary}
     <p class="summary">{idea.summary}</p>
   {/if}
@@ -112,5 +136,30 @@
     flex-wrap: wrap;
     gap: 4px;
     margin-top: 8px;
+  }
+  .thumbnail {
+    position: relative;
+    margin: 8px 0;
+    border-radius: 6px;
+    overflow: hidden;
+    aspect-ratio: 16 / 9;
+    background: #000;
+  }
+  .thumbnail img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+  .play-badge {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2rem;
+    color: #fff;
+    text-shadow: 0 1px 4px rgba(0,0,0,0.6);
+    pointer-events: none;
   }
 </style>
