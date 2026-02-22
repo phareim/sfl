@@ -14,6 +14,18 @@ enum APIError: LocalizedError {
         case .httpError(let code, let msg):
             return "HTTP \(code): \(msg)"
         case .decodingError(let e):
+            if let de = e as? DecodingError {
+                switch de {
+                case .keyNotFound(let key, let ctx):
+                    return "Missing key '\(key.stringValue)' at path: \(ctx.codingPath.map(\.stringValue).joined(separator: "."))"
+                case .typeMismatch(_, let ctx):
+                    return "Type mismatch at path: \(ctx.codingPath.map(\.stringValue).joined(separator: "."))"
+                case .valueNotFound(_, let ctx):
+                    return "Null value at path: \(ctx.codingPath.map(\.stringValue).joined(separator: "."))"
+                default:
+                    return "Decode error: \(de)"
+                }
+            }
             return "Parse error: \(e.localizedDescription)"
         }
     }
