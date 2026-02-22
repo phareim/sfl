@@ -99,9 +99,8 @@ npx wrangler r2 bucket create sfl-data
 ### 2. Initialize the database schema
 
 ```bash
-cd api
-npm install
-npx wrangler d1 execute sfl-db --remote --file=src/db/schema.sql
+pnpm install
+cd api && npx wrangler d1 execute sfl-db --remote --file=src/db/schema.sql
 ```
 
 ### 3. Set the API key
@@ -120,8 +119,7 @@ cd api && npx wrangler deploy
 ### 5. Deploy the web app
 
 ```bash
-cd web
-npm install && npm run build
+cd web && pnpm build
 npx wrangler pages project create sfl-web --production-branch master
 npx wrangler pages deploy build --project-name sfl-web
 ```
@@ -191,12 +189,17 @@ GET    /health                        health check (no auth required)
 ## Local development
 
 ```bash
-# Terminal 1 — API (local D1 + R2 via Wrangler)
-cd api && npm run dev
+# Install pnpm if you don't have it
+npm install -g pnpm
 
-# Terminal 2 — Web
-cd web && npm run dev
+# Install all dependencies
+pnpm install
+
+# Start API + web in parallel
+pnpm dev
 ```
+
+API runs on `http://localhost:8787`, web on `http://localhost:5173`.
 
 In the web app Settings, set API URL to `http://localhost:8787` and enter any string as the API key (local Wrangler doesn't enforce it by default — add `[vars] API_KEY = "dev"` to `wrangler.toml` for local auth).
 
