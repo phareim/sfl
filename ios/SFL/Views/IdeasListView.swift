@@ -66,7 +66,7 @@ struct IdeasListView: View {
     @State private var showSearch = false
     @State private var showSettings = false
 
-    private let types = ["all", "tag"]
+    private let types = ["all"] + IdeaType.allCases.map(\.rawValue)
 
     var body: some View {
         NavigationStack {
@@ -127,7 +127,7 @@ struct IdeasListView: View {
     // MARK: - Bottom bar
 
     private var bottomBar: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 0) {
             if showSearch {
                 HStack(spacing: 10) {
                     Image(systemName: "magnifyingglass")
@@ -146,48 +146,47 @@ struct IdeasListView: View {
                     }
                 }
                 .padding(.horizontal, 16)
-                .padding(.vertical, 12)
-                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16))
-                .shadow(color: .black.opacity(0.1), radius: 8, y: 2)
-                .padding(.horizontal, 16)
+                .padding(.vertical, 10)
+                .background(Color.sflSurface)
+                .overlay(alignment: .top) {
+                    Rectangle().fill(Color.sflStroke).frame(height: 1)
+                }
             }
 
+            Rectangle().fill(Color.sflStroke).frame(height: 1)
+
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 2) {
+                HStack(spacing: 8) {
                     ForEach(types, id: \.self) { t in
                         TypeChip(type: t, selected: selectedType == t) {
                             selectedType = t
                         }
                     }
 
-                    Divider()
-                        .frame(height: 20)
-                        .padding(.horizontal, 4)
-
                     Button {
-                        withAnimation(.spring(duration: 0.25)) {
+                        withAnimation(.easeInOut(duration: 0.15)) {
                             showSearch.toggle()
                         }
                     } label: {
                         Image(systemName: "magnifyingglass")
                             .font(.system(size: 13, weight: .medium))
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 8)
-                            .background(showSearch ? Color.sflAccent : Color.clear)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 6)
+                            .background(showSearch ? Color.sflAccent : Color.sflSurface)
                             .foregroundStyle(showSearch ? Color.sflInk : Color.sflMuted)
-                            .clipShape(Capsule())
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 4)
+                                    .strokeBorder(showSearch ? Color.clear : Color.sflStroke, lineWidth: 1)
+                            )
+                            .clipShape(RoundedRectangle(cornerRadius: 4))
                     }
                     .buttonStyle(.plain)
                 }
-                .padding(.horizontal, 8)
-                .padding(.vertical, 6)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 10)
             }
-            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 22))
-            .shadow(color: .black.opacity(0.12), radius: 16, y: 4)
-            .padding(.horizontal, 16)
-            .padding(.bottom, 8)
+            .background(Color.sflBg)
         }
-        .padding(.top, 4)
     }
 
     // MARK: - List content
@@ -268,11 +267,15 @@ struct TypeChip: View {
                     .font(.sflLabel)
                     .tracking(0.5)
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
-            .background(selected ? Color.sflAccent : Color.clear)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(selected ? Color.sflAccent : Color.sflSurface)
             .foregroundStyle(selected ? Color.sflInk : Color.sflMuted)
-            .clipShape(Capsule())
+            .overlay(
+                RoundedRectangle(cornerRadius: 4)
+                    .strokeBorder(selected ? Color.clear : Color.sflStroke, lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 4))
         }
         .buttonStyle(.plain)
     }
