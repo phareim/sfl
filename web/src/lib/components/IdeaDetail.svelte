@@ -37,6 +37,17 @@
   }
 
   let fetching = false;
+  let pastingText = false;
+  let pasteBuffer = '';
+
+  async function savePastedText() {
+    const trimmed = pasteBuffer.trim();
+    pastingText = false;
+    pasteBuffer = '';
+    if (!trimmed) return;
+    const result = await updateIdea(idea.id, { data: { ...data, text: trimmed } });
+    data = result.data;
+  }
 
   async function doFetchContent() {
     fetching = true;
@@ -243,7 +254,27 @@
 
     {#if idea.type === 'page' && !data.text}
       {#if data.article === false}
-        <p class="not-article">Not an article — no full text available</p>
+        <div class="not-article-row">
+          <span class="not-article">Not an article</span>
+          {#if pastingText}
+            <div class="paste-box">
+              <!-- svelte-ignore a11y_autofocus -->
+              <textarea
+                class="paste-area"
+                bind:value={pasteBuffer}
+                autofocus
+                placeholder="Paste text here…"
+                rows="6"
+              ></textarea>
+              <div class="paste-actions">
+                <button class="fetch-btn" on:click={savePastedText} disabled={!pasteBuffer.trim()}>Save</button>
+                <button class="fetch-btn" on:click={() => { pastingText = false; pasteBuffer = ''; }}>Cancel</button>
+              </div>
+            </div>
+          {:else}
+            <button class="paste-btn" on:click={() => (pastingText = true)}>Paste text</button>
+          {/if}
+        </div>
       {:else}
         <button class="fetch-btn" on:click={doFetchContent} disabled={fetching}>
           {fetching ? 'Fetching…' : 'Fetch full article'}
@@ -521,14 +552,49 @@
   .fetch-btn:active { box-shadow: none; transform: translate(1px, 1px); }
   .fetch-btn:disabled { opacity: 0.5; cursor: default; transform: none !important; box-shadow: none !important; }
 
-  .not-article {
+  .not-article-row {
     margin-top: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    align-items: flex-start;
+  }
+  .not-article {
     font-size: 0.82rem;
     color: var(--muted);
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.06em;
   }
+  .paste-btn {
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--muted);
+    background: transparent;
+    border: 1px dashed var(--stroke);
+    border-radius: var(--r);
+    padding: 3px 10px;
+    cursor: pointer;
+    transition: color 0.1s, border-color 0.1s;
+  }
+  .paste-btn:hover { color: var(--text); border-color: var(--text); border-style: solid; }
+  .paste-box { width: 100%; display: flex; flex-direction: column; gap: 8px; }
+  .paste-area {
+    width: 100%;
+    box-sizing: border-box;
+    background: var(--surface);
+    border: 2px solid var(--accent);
+    border-radius: var(--r);
+    color: var(--text);
+    font-size: 0.9rem;
+    font-family: inherit;
+    line-height: 1.6;
+    padding: 10px 12px;
+    resize: vertical;
+    outline: none;
+  }
+  .paste-area::placeholder { color: var(--muted); }
+  .paste-actions { display: flex; gap: 8px; }
 
   /* ── VIDEO ── */
   .video-embed {
