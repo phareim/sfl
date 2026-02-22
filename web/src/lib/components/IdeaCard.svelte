@@ -47,41 +47,47 @@
   }
 </script>
 
-<a
-  href="/ideas/{idea.id}"
-  class="card"
-  style="background: {colors.bg}; border-left-color: {colors.accent};"
->
-  <div class="card-header">
-    <span class="type-icon">{TYPE_ICONS[idea.type] ?? '💡'}</span>
-    <span class="type-label" style="color: {colors.accent}">{idea.type}</span>
-    <span class="date">{formatDate(idea.created_at)}</span>
-  </div>
-  <h3 class="title">{idea.title ?? '(untitled)'}</h3>
-  {#if videoId}
-    <div class="thumbnail">
-      <img
-        src="https://img.youtube.com/vi/{videoId}/hqdefault.jpg"
-        alt={idea.title ?? ''}
-        loading="lazy"
-      />
-      <span class="play-badge">▶</span>
+{#if idea.type === 'tag'}
+  <a href="/ideas/{idea.id}" class="card tag-card">
+    <span class="tag-hash">#</span><span class="tag-word">{idea.title ?? 'tag'}</span>
+  </a>
+{:else}
+  <a
+    href="/ideas/{idea.id}"
+    class="card"
+    style="background: {colors.bg}; border-left-color: {colors.accent};"
+  >
+    <div class="card-header">
+      <span class="type-icon">{TYPE_ICONS[idea.type] ?? '💡'}</span>
+      <span class="type-label" style="color: {colors.accent}">{idea.type}</span>
+      <span class="date">{formatDate(idea.created_at)}</span>
     </div>
-  {/if}
-  {#if idea.summary}
-    <p class="summary">{idea.summary}</p>
-  {/if}
-  {#if idea.url}
-    <p class="url">{idea.url}</p>
-  {/if}
-  {#if tags.length > 0}
-    <div class="tags">
-      {#each tags as tag}
-        <TagPill {tag} />
-      {/each}
-    </div>
-  {/if}
-</a>
+    <h3 class="title">{idea.title ?? '(untitled)'}</h3>
+    {#if videoId}
+      <div class="thumbnail">
+        <img
+          src="https://img.youtube.com/vi/{videoId}/hqdefault.jpg"
+          alt={idea.title ?? ''}
+          loading="lazy"
+        />
+        <span class="play-badge">▶</span>
+      </div>
+    {/if}
+    {#if idea.summary}
+      <p class="summary">{idea.summary}</p>
+    {/if}
+    {#if idea.url}
+      <p class="url">{idea.url}</p>
+    {/if}
+    {#if tags.length > 0}
+      <div class="tags">
+        {#each tags as tag}
+          <TagPill {tag} />
+        {/each}
+      </div>
+    {/if}
+  </a>
+{/if}
 
 <style>
   .card {
@@ -150,6 +156,32 @@
     flex-wrap: wrap;
     gap: 4px;
     margin-top: 8px;
+  }
+
+  .tag-card {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100px;
+    background: #0f172a;
+    border-left: none;
+    border-radius: 10px;
+    padding: 24px 20px;
+    word-break: break-word;
+    text-align: center;
+  }
+  .tag-hash {
+    font-size: 2rem;
+    font-weight: 900;
+    color: #475569;
+    line-height: 1;
+  }
+  .tag-word {
+    font-size: 2rem;
+    font-weight: 900;
+    color: #f8fafc;
+    line-height: 1;
+    letter-spacing: -0.02em;
   }
 
   .thumbnail {
