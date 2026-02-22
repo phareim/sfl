@@ -57,6 +57,37 @@ Tags are ideas with `type = 'tag'`. Tagging an idea = creating a connection with
 
 ---
 
+## iOS app
+
+Native SwiftUI app (iOS 16+) with a Share Extension for capturing from any app.
+
+### Install
+
+```bash
+open ios/SFL.xcodeproj
+# Signing & Capabilities → set Team for both targets (SFL + SFLShareExtension)
+# Add App Group "group.no.phareim.sfl" to both targets
+```
+
+First launch: Settings → General → VPN & Device Management → Trust your cert.
+Then open the app → Settings tab → enter your Worker URL and API key.
+
+### Re-deploy from the command line
+
+```bash
+cd ios
+make install   # build + push to connected iPhone
+make devices   # list connected devices
+```
+
+Requires Xcode 15+, phone connected via USB and unlocked.
+
+### Share Extension
+
+In any app: Share → SFL (or More → enable SFL if not visible).
+
+---
+
 ## Chrome extension
 
 ### What it captures
