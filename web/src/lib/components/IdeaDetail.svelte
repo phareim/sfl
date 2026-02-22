@@ -3,6 +3,7 @@
   import MediaGallery from './MediaGallery.svelte';
   import TagEditor from './TagEditor.svelte';
   import IdeaCard from './IdeaCard.svelte';
+  import { updateNote } from '../api/notes.js';
 
   export let idea;
   export let data = {};
@@ -22,6 +23,21 @@
   }
 
   $: accent = ACCENTS[idea.type] ?? '#cbd5e1';
+
+  let editingNoteId = null;
+  let editingBody = '';
+
+  function startEdit(note) {
+    editingNoteId = note.id;
+    editingBody = note.body;
+  }
+
+  async function saveEdit(note) {
+    if (editingBody.trim() === note.body) { editingNoteId = null; return; }
+    const { note: updated } = await updateNote(note.id, { body: editingBody.trim() });
+    notes = notes.map((n) => (n.id === note.id ? updated : n));
+    editingNoteId = null;
+  }
 
   $: currentTags = connections
     .filter((c) => c.label === 'tagged_with' && (c.to_type === 'tag' || c.from_type === 'tag'))
@@ -66,15 +82,30 @@
   <article class="detail">
     <header class="tag-hero">
       <h1 class="tag-title"><span class="tag-hash">#</span>{idea.title ?? 'tag'}</h1>
-      <div class="tag-meta-row">
-        <TagEditor ideaId={idea.id} {currentTags} />
-      </div>
     </header>
 
     {#if notes.length > 0}
       <section class="compact-notes">
         {#each notes as note (note.id)}
-          <p class="compact-note">{note.body}</p>
+          {#if editingNoteId === note.id}
+            <!-- svelte-ignore a11y_autofocus -->
+            <textarea
+              class="note-edit"
+              bind:value={editingBody}
+              autofocus
+              on:blur={() => saveEdit(note)}
+              on:keydown={(e) => e.key === 'Escape' && (editingNoteId = null)}
+            ></textarea>
+          {:else}
+            <p
+              class="compact-note"
+              title="Click to edit"
+              role="button"
+              tabindex="0"
+              on:click={() => startEdit(note)}
+              on:keydown={(e) => e.key === 'Enter' && startEdit(note)}
+            >{note.body}</p>
+          {/if}
         {/each}
       </section>
     {/if}
@@ -212,11 +243,31 @@
     line-height: 1.6;
     color: var(--muted);
     white-space: pre-wrap;
+    cursor: text;
   }
-  .compact-note + .compact-note {
+  .compact-note:hover { color: var(--text); }
+  .compact-note + .compact-note,
+  .note-edit + .compact-note,
+  .compact-note + .note-edit {
     margin-top: 10px;
     padding-top: 10px;
     border-top: 1px solid var(--stroke);
+  }
+  .note-edit {
+    width: 100%;
+    box-sizing: border-box;
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid var(--accent);
+    border-radius: 0;
+    color: var(--text);
+    font-size: 0.92rem;
+    font-family: inherit;
+    line-height: 1.6;
+    padding: 2px 0;
+    resize: none;
+    outline: none;
+    min-height: 4em;
   }
 
   /* ── GENERAL DETAIL HEADER ── */
