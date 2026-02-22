@@ -6,6 +6,9 @@
     "web",
     "chrome-extension"
   ],
+  "scripts": {
+    "dev": "pnpm -r --parallel --if-present dev"
+  },
   "engines": {
     "node": ">=20"
   }
