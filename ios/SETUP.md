@@ -29,11 +29,11 @@ Xcode will generate provisioning profiles automatically.
 Both targets need the same App Group so settings sync between the app and Share Extension.
 
 For **each target** → **Signing & Capabilities → + Capability → App Groups**:
-- Add: `group.sfl.personal`
+- Add: `group.no.phareim.sfl`
 
 If you want a different group ID, update it in three places:
 - `Signing & Capabilities` for both targets
-- `Settings.swift`: `static let appGroupID = "group.sfl.personal"`
+- `Settings.swift`: `static let appGroupID = "group.no.phareim.sfl"`
 
 ---
 
@@ -60,4 +60,4 @@ Open the app → **Settings tab** → enter your Worker URL and API key.
 
 ## Bundle ID
 
-The default bundle ID is `com.personal.sfl`. Change it in **Build Settings → Product Bundle Identifier** for both targets (extension must be `<app-id>.ShareExtension`).
+The default bundle ID is `no.phareim.sfl`. Change it in **Build Settings → Product Bundle Identifier** for both targets (extension must be `<app-id>.ShareExtension`).

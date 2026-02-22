@@ -4,7 +4,7 @@
 <dict>
 	<key>com.apple.security.application-groups</key>
 	<array>
-		<string>group.sfl.personal</string>
+		<string>group.no.phareim.sfl</string>
 	</array>
 </dict>
 </plist>

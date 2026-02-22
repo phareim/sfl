@@ -9,7 +9,7 @@ final class Settings: ObservableObject {
 
     // Keep in sync with ShareExtension target and Xcode capabilities.
     // Format: group.<your-bundle-id>
-    static let appGroupID = "group.sfl.personal"
+    static let appGroupID = "group.no.phareim.sfl"
 
     private let defaults: UserDefaults
 
