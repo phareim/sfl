@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#ff6eb4"/>
+      <stop offset="50%" stop-color="#ff8c42"/>
+      <stop offset="100%" stop-color="#ffc43d"/>
+    </linearGradient>
+  </defs>
+  <rect width="32" height="32" rx="7" fill="url(#bg)"/>
+  <path d="M9 5 h14 a1 1 0 0 1 1 1 v20 l-8-5 -8 5 V6 a1 1 0 0 1 1-1 Z" fill="white" opacity="0.95"/>
+  <text x="16" y="19" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="9" fill="#ff6eb4" text-anchor="middle" letter-spacing="-0.5">SFL</text>
+</svg>
