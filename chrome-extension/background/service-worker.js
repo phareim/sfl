@@ -153,7 +153,7 @@ async function handleSavePage(info, tab) {
   const video = detectVideo(tab.url);
 
   if (video.isVideo) {
-    const title = tab.title.replace(/\s*[-–|]\s*YouTube\s*$/, '').trim() || tab.title;
+    const title = tab.title.replace(/\s*[-–|]\s*(YouTube|TikTok)\s*$/, '').trim() || tab.title;
     const { idea } = await apiPost('/api/ideas', {
       type: 'video',
       title,

@@ -16,6 +16,9 @@ export function detectVideo(url) {
   // youtube.com/shorts/ID
   m = url?.match(/youtube\.com\/shorts\/([\w-]{11})/);
   if (m) return { isVideo: true, platform: 'youtube', video_id: m[1] };
+  // tiktok.com/@user/video/ID
+  m = url?.match(/tiktok\.com\/@[\w.]+\/video\/(\d+)/);
+  if (m) return { isVideo: true, platform: 'tiktok', video_id: m[1] };
   return { isVideo: false };
 }
 

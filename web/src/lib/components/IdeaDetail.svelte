@@ -24,17 +24,20 @@
 
   $: relatedConnections = connections.filter((c) => c.label !== 'tagged_with');
 
-  $: youtubeEmbedId = (() => {
+  $: videoEmbed = (() => {
     if (idea.type !== 'video') return null;
-    if (data?.video_id && data?.platform === 'youtube') return data.video_id;
+    // Use stored data if available
+    if (data?.video_id && data?.platform) return { platform: data.platform, video_id: data.video_id };
     // Fallback: parse from url
     const url = idea.url ?? '';
     let m = url.match(/[?&]v=([\w-]{11})/);
-    if (m) return m[1];
+    if (m) return { platform: 'youtube', video_id: m[1] };
     m = url.match(/youtu\.be\/([\w-]{11})/);
-    if (m) return m[1];
+    if (m) return { platform: 'youtube', video_id: m[1] };
     m = url.match(/youtube\.com\/shorts\/([\w-]{11})/);
-    if (m) return m[1];
+    if (m) return { platform: 'youtube', video_id: m[1] };
+    m = url.match(/tiktok\.com\/@[\w.]+\/video\/(\d+)/);
+    if (m) return { platform: 'tiktok', video_id: m[1] };
     return null;
   })();
 </script>
@@ -54,11 +57,21 @@
     </div>
   </header>
 
-  {#if youtubeEmbedId}
-    <section class="video-embed">
+  {#if videoEmbed?.platform === 'youtube'}
+    <section class="video-embed landscape">
       <iframe
-        src="https://www.youtube-nocookie.com/embed/{youtubeEmbedId}"
+        src="https://www.youtube-nocookie.com/embed/{videoEmbed.video_id}"
         title={idea.title ?? 'YouTube video'}
+        frameborder="0"
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+        allowfullscreen
+      ></iframe>
+    </section>
+  {:else if videoEmbed?.platform === 'tiktok'}
+    <section class="video-embed portrait">
+      <iframe
+        src="https://www.tiktok.com/embed/v2/{videoEmbed.video_id}"
+        title={idea.title ?? 'TikTok video'}
         frameborder="0"
         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
         allowfullscreen
@@ -131,12 +144,13 @@
   .video-embed {
     margin: 24px 0;
     position: relative;
-    padding-bottom: 56.25%; /* 16:9 */
     height: 0;
     overflow: hidden;
     border-radius: 8px;
     background: #000;
   }
+  .video-embed.landscape { padding-bottom: 56.25%; /* 16:9 */ }
+  .video-embed.portrait  { width: 325px; max-width: 100%; padding-bottom: min(578px, 177%); }
   .video-embed iframe {
     position: absolute;
     top: 0; left: 0;
