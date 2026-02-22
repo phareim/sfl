@@ -89,19 +89,17 @@
 </script>
 
 <div class="tag-editor">
-  <div class="current-tags">
-    {#each currentTags as entry (entry.connectionId)}
-      <span class="tag-chip">
-        #{entry.tagTitle ?? entry.tagId}
-        <button class="remove" on:click={() => removeTag(entry)} title="Remove tag">×</button>
-      </span>
-    {/each}
-  </div>
+  {#each currentTags as entry (entry.connectionId)}
+    <span class="tag-chip">
+      #{entry.tagTitle ?? entry.tagId}
+      <button class="remove" on:click={() => removeTag(entry)} title="Remove tag">×</button>
+    </span>
+  {/each}
 
   <div class="input-wrap">
     <input
       type="text"
-      placeholder="Add tag… (Enter to create)"
+      placeholder="+ tag"
       bind:value={input}
       on:keydown={onKeydown}
       on:focus={() => (showSuggestions = true)}
@@ -128,9 +126,12 @@
 </div>
 
 <style>
-  .tag-editor { display: flex; flex-direction: column; gap: 8px; }
-
-  .current-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+  .tag-editor {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+  }
 
   .tag-chip {
     display: inline-flex;
@@ -153,31 +154,36 @@
     font-size: 1rem;
     line-height: 1;
     padding: 0;
-    opacity: 0.5;
+    opacity: 0.4;
   }
   .remove:hover { opacity: 1; }
 
   .input-wrap { position: relative; }
 
   input {
-    width: 100%;
-    padding: 7px 10px;
-    border: 2px solid var(--stroke);
+    width: 72px;
+    padding: 3px 6px;
+    border: 1px dashed var(--stroke);
     border-radius: var(--r);
-    background: var(--bg);
+    background: transparent;
     color: var(--text);
-    font-size: 0.88rem;
+    font-size: 0.82rem;
     outline: none;
-    transition: border-color 0.1s;
+    transition: width 0.15s, border-color 0.1s, border-style 0.1s;
   }
-  input:focus { border-color: var(--accent); }
+  input:focus {
+    width: 140px;
+    border-style: solid;
+    border-color: var(--accent);
+  }
   input::placeholder { color: var(--muted); }
-  input:disabled { opacity: 0.5; }
+  input:disabled { opacity: 0.4; }
 
   .suggestions {
     position: absolute;
     top: calc(100% + 4px);
-    left: 0; right: 0;
+    left: 0;
+    min-width: 160px;
     background: var(--surface);
     border: 2px solid var(--stroke);
     border-radius: var(--r);

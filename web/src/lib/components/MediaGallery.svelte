@@ -59,48 +59,85 @@
       </div>
     {/each}
   </div>
-  <label class="upload-btn">
-    {uploading ? 'Uploading...' : '+ Upload file'}
+  <label class="upload-btn" class:busy={uploading}>
+    {uploading ? 'Uploading…' : '+ Upload file'}
     <input type="file" on:change={onFileChange} disabled={uploading} hidden />
   </label>
 </section>
 
 <style>
-  .gallery { margin-top: 24px; }
-  h4 { margin: 0 0 12px; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.05em; color: #888; }
-  .grid { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 12px; }
+  .gallery { margin-top: 32px; }
+  h4 {
+    margin: 0 0 14px;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    font-weight: 800;
+    color: var(--muted);
+    padding-bottom: 8px;
+    border-bottom: 2px solid var(--stroke);
+  }
+  .grid { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 14px; }
   .item {
     position: relative;
     width: 120px;
-    border: 1px solid #eee;
-    border-radius: 6px;
+    border: 2px solid var(--stroke);
+    border-radius: var(--r);
     overflow: hidden;
-    background: #f5f5f5;
+    background: var(--surface);
+    box-shadow: var(--shadow);
+    transition: box-shadow 0.1s, transform 0.1s;
   }
+  .item:hover { box-shadow: var(--shadow-hover); transform: translate(-1px, -1px); }
   .item img { width: 100%; height: 90px; object-fit: cover; display: block; }
-  .file-icon { display: flex; align-items: center; justify-content: center; height: 90px; font-size: 2rem; }
-  .filename { margin: 0; padding: 4px 6px; font-size: 0.7rem; color: #555; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .file-icon {
+    display: flex; align-items: center; justify-content: center;
+    height: 90px; font-size: 2rem;
+    color: var(--muted);
+  }
+  .filename {
+    margin: 0;
+    padding: 5px 7px;
+    font-size: 0.68rem;
+    font-weight: 600;
+    color: var(--muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    border-top: 1px solid var(--stroke);
+  }
   .remove {
     position: absolute;
     top: 4px; right: 4px;
-    background: rgba(0,0,0,0.5);
-    color: #fff;
-    border: none;
-    border-radius: 50%;
+    background: var(--bg);
+    color: #ef4444;
+    border: 1px solid #ef4444;
+    border-radius: var(--r);
     width: 20px; height: 20px;
     font-size: 14px;
     line-height: 1;
     cursor: pointer;
     display: flex; align-items: center; justify-content: center;
+    opacity: 0;
+    transition: opacity 0.1s;
   }
+  .item:hover .remove { opacity: 1; }
   .upload-btn {
-    display: inline-block;
-    padding: 6px 14px;
-    background: #f0f0f0;
-    border-radius: 6px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 14px;
+    background: transparent;
+    border: 2px solid var(--stroke);
+    border-radius: var(--r);
     cursor: pointer;
     font-size: 0.85rem;
-    border: 1px dashed #ccc;
+    font-weight: 700;
+    color: var(--text);
+    box-shadow: var(--shadow);
+    transition: box-shadow 0.1s, transform 0.1s;
   }
-  .upload-btn:hover { background: #e8e8e8; }
+  .upload-btn:hover { box-shadow: var(--shadow-hover); transform: translate(-1px, -1px); }
+  .upload-btn:active { box-shadow: none; transform: translate(1px, 1px); }
+  .upload-btn.busy { opacity: 0.5; cursor: default; transform: none !important; box-shadow: none !important; }
 </style>

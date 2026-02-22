@@ -4,6 +4,7 @@
   import TagEditor from './TagEditor.svelte';
   import IdeaCard from './IdeaCard.svelte';
   import { updateNote } from '../api/notes.js';
+  import { updateIdea } from '../api/ideas.js';
 
   export let idea;
   export let data = {};
@@ -26,6 +27,22 @@
 
   let editingNoteId = null;
   let editingBody = '';
+
+  let editingTitle = false;
+  let titleDraft = '';
+
+  function startEditTitle() {
+    titleDraft = idea.title ?? '';
+    editingTitle = true;
+  }
+
+  async function saveTitle() {
+    const trimmed = titleDraft.trim();
+    editingTitle = false;
+    if (!trimmed || trimmed === idea.title) return;
+    const { idea: updated } = await updateIdea(idea.id, { title: trimmed });
+    idea = { ...idea, title: updated.title };
+  }
 
   function startEdit(note) {
     editingNoteId = note.id;
@@ -81,7 +98,20 @@
   <!-- ── TAG DETAIL ── -->
   <article class="detail">
     <header class="tag-hero">
-      <h1 class="tag-title"><span class="tag-hash">#</span>{idea.title ?? 'tag'}</h1>
+      {#if editingTitle}
+        <!-- svelte-ignore a11y_autofocus -->
+        <input
+          class="tag-title-input"
+          bind:value={titleDraft}
+          autofocus
+          on:blur={saveTitle}
+          on:keydown={(e) => { if (e.key === 'Enter') saveTitle(); if (e.key === 'Escape') (editingTitle = false); }}
+        />
+      {:else}
+        <h1 class="tag-title" title="Click to edit" role="button" tabindex="0" on:click={startEditTitle} on:keydown={(e) => e.key === 'Enter' && startEditTitle()}>
+          <span class="tag-hash">#</span>{idea.title ?? 'tag'}
+        </h1>
+      {/if}
     </header>
 
     {#if notes.length > 0}
@@ -134,7 +164,20 @@
         <span class="type-badge" style="color: {accent}; border-color: {accent};">{idea.type}</span>
         <span class="date">{formatDate(idea.created_at)}</span>
       </div>
-      <h1>{idea.title ?? '(untitled)'}</h1>
+      {#if editingTitle}
+        <!-- svelte-ignore a11y_autofocus -->
+        <input
+          class="title-input"
+          bind:value={titleDraft}
+          autofocus
+          on:blur={saveTitle}
+          on:keydown={(e) => { if (e.key === 'Enter') saveTitle(); if (e.key === 'Escape') (editingTitle = false); }}
+        />
+      {:else}
+        <h1 class="editable-title" title="Click to edit" role="button" tabindex="0" on:click={startEditTitle} on:keydown={(e) => e.key === 'Enter' && startEditTitle()}>
+          {idea.title ?? '(untitled)'}
+        </h1>
+      {/if}
       {#if idea.url}
         <a class="source-url" href={idea.url} target="_blank" rel="noopener">{idea.url}</a>
       {/if}
@@ -203,7 +246,7 @@
     {/if}
 
     <NoteEditor ideaId={idea.id} {notes} />
-    <MediaGallery ideaId={idea.id} {media} />
+    <MediaGallery ideaId={idea.id} items={media} />
   </article>
 {/if}
 
@@ -220,14 +263,30 @@
     margin-bottom: 28px;
   }
   .tag-title {
-    margin: 0 0 16px;
+    margin: 0 0 4px;
     font-size: 3rem;
     font-weight: 900;
     letter-spacing: -0.04em;
     line-height: 1;
+    cursor: text;
   }
   .tag-hash { color: #475569; }
-  .tag-meta-row { margin-top: 8px; }
+  .tag-title-input {
+    width: 100%;
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid var(--accent);
+    border-radius: 0;
+    color: #eeedf0;
+    font-size: 3rem;
+    font-weight: 900;
+    letter-spacing: -0.04em;
+    line-height: 1;
+    padding: 0 0 4px;
+    outline: none;
+    font-family: inherit;
+    margin-bottom: 4px;
+  }
 
   .compact-notes {
     border: 2px solid var(--stroke);
@@ -293,6 +352,25 @@
   }
   .date { font-size: 0.75rem; color: var(--muted); margin-left: auto; }
   h1 { margin: 0 0 10px; font-size: 2rem; font-weight: 900; line-height: 1.2; letter-spacing: -0.02em; }
+  .editable-title { cursor: text; }
+  .title-input {
+    width: 100%;
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid var(--accent);
+    border-radius: 0;
+    color: var(--text);
+    font-size: 2rem;
+    font-weight: 900;
+    line-height: 1.2;
+    letter-spacing: -0.02em;
+    padding: 0 0 4px;
+    margin-bottom: 10px;
+    outline: none;
+    font-family: inherit;
+    display: block;
+    box-sizing: border-box;
+  }
   .source-url { font-size: 0.8rem; color: var(--muted); word-break: break-all; text-decoration: none; display: block; }
   .source-url:hover { color: var(--text); }
   .tags-row { margin-top: 14px; }
