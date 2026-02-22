@@ -113,7 +113,10 @@ struct ShareView: View {
         }
         .onAppear {
             title = context.suggestedTitle
-            selectedType = context.url != nil ? "page" : "note"
+            selectedType = typeForURL(context.url)
+        }
+        .onChange(of: context.url) { _, url in
+            selectedType = typeForURL(url)
         }
         .onChange(of: context.suggestedTitle) { _, t in
             if title.isEmpty { title = t }
@@ -254,6 +257,24 @@ struct ShareView: View {
             .padding(16)
         }
         .background(Color.sflBg)
+    }
+
+    // MARK: - URL → type detection
+
+    private func typeForURL(_ url: URL?) -> String {
+        guard let host = url?.host?.lowercased() else { return "note" }
+        switch true {
+        case host.contains("x.com"), host.contains("twitter.com"),
+             host.contains("threads.net"), host.contains("threads.com"),
+             host.contains("bsky.app"):
+            return "tweet"
+        case host.contains("youtube.com"), host.contains("youtu.be"),
+             host.contains("tiktok.com"), host.contains("vimeo.com"),
+             host.contains("twitch.tv"):
+            return "video"
+        default:
+            return "page"
+        }
     }
 
     // MARK: - Save
