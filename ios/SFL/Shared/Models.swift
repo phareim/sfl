@@ -29,7 +29,7 @@ struct Idea: Codable, Identifiable {
 
 // MARK: - Idea Detail (single idea with content + connections)
 
-struct IdeaDetail: Codable, Identifiable {
+struct IdeaDetail: Decodable, Identifiable {
     let id: String
     let type: String
     let title: String?
@@ -40,9 +40,25 @@ struct IdeaDetail: Codable, Identifiable {
     let connections: [Connection]?
     let notes: [Note]?
 
-    enum CodingKeys: String, CodingKey {
-        case id, type, title, url, summary, data, connections, notes
+    // API response: { idea: {id, type, ...}, data: {}, connections: [], notes: [], media: [] }
+    private enum RootKeys: String, CodingKey { case idea, data, connections, notes }
+    private enum IdeaKeys: String, CodingKey {
+        case id, type, title, url, summary
         case createdAt = "created_at"
+    }
+
+    init(from decoder: Decoder) throws {
+        let root = try decoder.container(keyedBy: RootKeys.self)
+        let idea = try root.nestedContainer(keyedBy: IdeaKeys.self, forKey: .idea)
+        id          = try idea.decode(String.self, forKey: .id)
+        type        = try idea.decode(String.self, forKey: .type)
+        title       = try idea.decodeIfPresent(String.self, forKey: .title)
+        url         = try idea.decodeIfPresent(String.self, forKey: .url)
+        summary     = try idea.decodeIfPresent(String.self, forKey: .summary)
+        createdAt   = try idea.decode(Int.self, forKey: .createdAt)
+        data        = try root.decodeIfPresent(IdeaData.self, forKey: .data)
+        connections = try root.decodeIfPresent([Connection].self, forKey: .connections)
+        notes       = try root.decodeIfPresent([Note].self, forKey: .notes)
     }
 
     var displayTitle: String {
