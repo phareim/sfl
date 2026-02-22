@@ -60,7 +60,7 @@
     <div class="card-header">
       <span class="type-icon">{TYPE_ICONS[idea.type] ?? '💡'}</span>
       <span class="type-label" style="color: {accent}">{idea.type}</span>
-      <span class="date">{formatDate(idea.created_at)}</span>
+      {#if idea.created_at}<span class="date">{formatDate(idea.created_at)}</span>{/if}
     </div>
     <h3 class="title">{idea.title ?? '(untitled)'}</h3>
     {#if videoId}

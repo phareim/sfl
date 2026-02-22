@@ -136,23 +136,24 @@
     display: inline-flex;
     align-items: center;
     gap: 4px;
-    padding: 3px 10px;
-    background: #e8f0fe;
-    color: #1a73e8;
-    border-radius: 999px;
+    padding: 3px 8px;
+    background: transparent;
+    color: var(--accent);
+    border: 1px solid var(--accent);
+    border-radius: var(--r);
     font-size: 0.82rem;
-    font-weight: 500;
+    font-weight: 600;
   }
 
   .remove {
     background: none;
     border: none;
-    color: #1a73e8;
+    color: var(--accent);
     cursor: pointer;
     font-size: 1rem;
     line-height: 1;
     padding: 0;
-    opacity: 0.6;
+    opacity: 0.5;
   }
   .remove:hover { opacity: 1; }
 
@@ -161,22 +162,26 @@
   input {
     width: 100%;
     padding: 7px 10px;
-    border: 1px solid #ddd;
-    border-radius: 6px;
+    border: 2px solid var(--stroke);
+    border-radius: var(--r);
+    background: var(--bg);
+    color: var(--text);
     font-size: 0.88rem;
     outline: none;
-    transition: border-color 0.15s;
+    transition: border-color 0.1s;
   }
-  input:focus { border-color: #1a73e8; }
+  input:focus { border-color: var(--accent); }
+  input::placeholder { color: var(--muted); }
+  input:disabled { opacity: 0.5; }
 
   .suggestions {
     position: absolute;
     top: calc(100% + 4px);
     left: 0; right: 0;
-    background: #fff;
-    border: 1px solid #e0e0e0;
-    border-radius: 6px;
-    box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+    background: var(--surface);
+    border: 2px solid var(--stroke);
+    border-radius: var(--r);
+    box-shadow: var(--shadow-hover);
     list-style: none;
     margin: 0; padding: 4px 0;
     z-index: 50;
@@ -191,9 +196,10 @@
     border: none;
     cursor: pointer;
     font-size: 0.88rem;
-    color: #1a1a1a;
+    color: var(--text);
+    font-weight: 500;
   }
-  .suggestions li button:hover { background: #f5f5f5; }
+  .suggestions li button:hover { background: var(--bg); }
 
-  .create-new button { color: #1a73e8; }
+  .create-new button { color: var(--accent); }
 </style>

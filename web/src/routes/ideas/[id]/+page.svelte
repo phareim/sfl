@@ -53,20 +53,39 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 24px;
+    margin-bottom: 28px;
   }
-  .back { color: #1a73e8; text-decoration: none; font-size: 0.9rem; }
-  .back:hover { text-decoration: underline; }
+  .back {
+    color: var(--text);
+    text-decoration: none;
+    font-size: 0.88rem;
+    font-weight: 600;
+    padding: 6px 14px;
+    border: 2px solid var(--stroke);
+    border-radius: var(--r);
+    box-shadow: var(--shadow);
+    transition: box-shadow 0.1s, transform 0.1s;
+  }
+  .back:hover {
+    box-shadow: var(--shadow-hover);
+    transform: translate(-1px, -1px);
+  }
   .delete-btn {
     padding: 6px 14px;
-    border: 1px solid #d32f2f;
-    border-radius: 6px;
-    color: #d32f2f;
-    background: #fff;
+    border: 2px solid #ef4444;
+    border-radius: var(--r);
+    color: #ef4444;
+    background: transparent;
     cursor: pointer;
     font-size: 0.85rem;
+    font-weight: 600;
+    box-shadow: 3px 3px 0 #ef4444;
+    transition: box-shadow 0.1s, transform 0.1s;
   }
-  .delete-btn:hover { background: #fdecea; }
-  .muted { color: #aaa; }
-  .error { color: #d32f2f; }
+  .delete-btn:hover {
+    box-shadow: 5px 5px 0 #ef4444;
+    transform: translate(-1px, -1px);
+  }
+  .muted { color: var(--muted); }
+  .error { color: #f87171; }
 </style>
