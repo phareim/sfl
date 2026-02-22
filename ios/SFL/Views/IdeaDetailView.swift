@@ -5,7 +5,7 @@ import SwiftUI
 @MainActor
 final class IdeaDetailViewModel: ObservableObject {
     @Published var idea: IdeaDetail?
-    @Published var isLoading = false
+    @Published var isLoading = true
     @Published var error: String?
 
     func load(id: String) {
@@ -29,17 +29,16 @@ struct IdeaDetailView: View {
     @StateObject private var vm = IdeaDetailViewModel()
 
     var body: some View {
-        Group {
+        ZStack {
+            Color.sflBg.ignoresSafeArea()
             if vm.isLoading {
                 ProgressView().tint(Color.sflAccent)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if let error = vm.error {
                 errorView(error)
             } else if let idea = vm.idea {
                 ideaContent(idea)
             }
         }
-        .background(Color.sflBg)
         .task { vm.load(id: id) }
     }
 
