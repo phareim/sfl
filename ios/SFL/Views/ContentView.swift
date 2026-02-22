@@ -5,13 +5,7 @@ struct ContentView: View {
 
     var body: some View {
         if settings.isConfigured {
-            TabView {
-                IdeasListView()
-                    .tabItem { Label("Ideas", systemImage: "lightbulb") }
-                SettingsView()
-                    .tabItem { Label("Settings", systemImage: "gearshape") }
-            }
-            .tint(Color.sflAccent)
+            IdeasListView()
         } else {
             SettingsView(onboardingMode: true)
         }

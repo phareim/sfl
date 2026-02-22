@@ -63,19 +63,14 @@ struct IdeasListView: View {
     @State private var searchText = ""
     @State private var selectedType = "all"
     @State private var searchDebounce: Task<Void, Never>?
+    @State private var showSearch = false
+    @State private var showSettings = false
 
     private let types = ["all"] + IdeaType.allCases.map(\.rawValue)
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 0) {
-                typeFilter
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 10)
-                    .background(Color.sflBg)
-
-                Divider().overlay(Color.sflStroke)
-
+            Group {
                 if let error = vm.error {
                     errorView(error)
                 } else {
@@ -83,9 +78,25 @@ struct IdeasListView: View {
                 }
             }
             .background(Color.sflBg)
-            .navigationTitle("SFL")
-            .navigationBarTitleDisplayMode(.large)
-            .searchable(text: $searchText, prompt: "Search ideas…")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .principal) {
+                    Image("icon")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(height: 28)
+                        .clipShape(RoundedRectangle(cornerRadius: 6))
+                }
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button { showSettings = true } label: {
+                        Image(systemName: "gearshape")
+                            .foregroundStyle(Color.sflMuted)
+                    }
+                }
+            }
+            .safeAreaInset(edge: .bottom) {
+                bottomBar
+            }
             .onChange(of: searchText) { _, q in
                 searchDebounce?.cancel()
                 searchDebounce = Task {
@@ -96,27 +107,89 @@ struct IdeasListView: View {
                     }
                 }
             }
+            .onChange(of: showSearch) { _, isShowing in
+                if !isShowing {
+                    searchText = ""
+                    vm.load(type: selectedType, reset: true)
+                }
+            }
             .onChange(of: selectedType) { _, t in
                 vm.load(type: t, query: searchText, reset: true)
             }
             .task { vm.load() }
             .refreshable { await vm.refresh() }
-        }
-    }
-
-    // MARK: Sub-views
-
-    private var typeFilter: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                ForEach(types, id: \.self) { t in
-                    TypeChip(type: t, selected: selectedType == t) {
-                        selectedType = t
-                    }
-                }
+            .sheet(isPresented: $showSettings) {
+                SettingsView()
             }
         }
     }
+
+    // MARK: - Bottom bar
+
+    private var bottomBar: some View {
+        VStack(spacing: 0) {
+            if showSearch {
+                HStack(spacing: 10) {
+                    Image(systemName: "magnifyingglass")
+                        .foregroundStyle(Color.sflMuted)
+                        .font(.system(size: 14))
+                    TextField("Search ideas…", text: $searchText)
+                        .font(.sflBody)
+                        .foregroundStyle(Color.sflText)
+                        .autocorrectionDisabled()
+                        .textInputAutocapitalization(.never)
+                    if !searchText.isEmpty {
+                        Button { searchText = "" } label: {
+                            Image(systemName: "xmark.circle.fill")
+                                .foregroundStyle(Color.sflMuted)
+                        }
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 10)
+                .background(Color.sflSurface)
+                .overlay(alignment: .top) {
+                    Rectangle().fill(Color.sflStroke).frame(height: 1)
+                }
+            }
+
+            Rectangle().fill(Color.sflStroke).frame(height: 1)
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(types, id: \.self) { t in
+                        TypeChip(type: t, selected: selectedType == t) {
+                            selectedType = t
+                        }
+                    }
+
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.15)) {
+                            showSearch.toggle()
+                        }
+                    } label: {
+                        Image(systemName: "magnifyingglass")
+                            .font(.system(size: 13, weight: .medium))
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 6)
+                            .background(showSearch ? Color.sflAccent : Color.sflSurface)
+                            .foregroundStyle(showSearch ? Color.sflInk : Color.sflMuted)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 4)
+                                    .strokeBorder(showSearch ? Color.clear : Color.sflStroke, lineWidth: 1)
+                            )
+                            .clipShape(RoundedRectangle(cornerRadius: 4))
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 10)
+            }
+            .background(Color.sflBg)
+        }
+    }
+
+    // MARK: - List content
 
     private var listContent: some View {
         ScrollView {

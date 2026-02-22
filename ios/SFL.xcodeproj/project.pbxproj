@@ -17,13 +17,14 @@
 		AA110000000000000000032A /* IdeaDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA110000000000000000017A /* IdeaDetailView.swift */; };
 		AA110000000000000000033A /* IdeasListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA110000000000000000018A /* IdeasListView.swift */; };
 		AA110000000000000000034A /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA110000000000000000019A /* SettingsView.swift */; };
+		AA110000000000000000063A /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = AA110000000000000000062A /* Assets.xcassets */; };
 		AA110000000000000000035A /* SFLShareExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = AA110000000000000000009A /* SFLShareExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		AA110000000000000000036A /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA110000000000000000020A /* ShareViewController.swift */; };
 		AA110000000000000000037A /* ShareView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA110000000000000000021A /* ShareView.swift */; };
-		AA110000000000000000038A /* Theme.swift in Sources (Ext) */ = {isa = PBXBuildFile; fileRef = AA110000000000000000011A /* Theme.swift */; };
-		AA110000000000000000039A /* Models.swift in Sources (Ext) */ = {isa = PBXBuildFile; fileRef = AA110000000000000000012A /* Models.swift */; };
-		AA110000000000000000040A /* Settings.swift in Sources (Ext) */ = {isa = PBXBuildFile; fileRef = AA110000000000000000013A /* Settings.swift */; };
-		AA110000000000000000041A /* APIClient.swift in Sources (Ext) */ = {isa = PBXBuildFile; fileRef = AA110000000000000000014A /* APIClient.swift */; };
+		AA110000000000000000038A /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA110000000000000000011A /* Theme.swift */; };
+		AA110000000000000000039A /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA110000000000000000012A /* Models.swift */; };
+		AA110000000000000000040A /* Settings.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA110000000000000000013A /* Settings.swift */; };
+		AA110000000000000000041A /* APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA110000000000000000014A /* APIClient.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -68,6 +69,7 @@
 		AA110000000000000000022A /* SFL.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = SFL.entitlements; sourceTree = "<group>"; };
 		AA110000000000000000023A /* SFLShareExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = SFLShareExtension.entitlements; sourceTree = "<group>"; };
 		AA110000000000000000024A /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		AA110000000000000000062A /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -78,7 +80,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		AA110000000000000000047A /* Frameworks (Ext) */ = {
+		AA110000000000000000047A /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -111,6 +113,7 @@
 			children = (
 				AA110000000000000000010A /* SFLApp.swift */,
 				AA110000000000000000022A /* SFL.entitlements */,
+				AA110000000000000000062A /* Assets.xcassets */,
 				AA110000000000000000005A /* Shared */,
 				AA110000000000000000006A /* Views */,
 			);
@@ -232,10 +235,11 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				AA110000000000000000063A /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		AA110000000000000000048A /* Resources (Ext) */ = {
+		AA110000000000000000048A /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -262,16 +266,16 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		AA110000000000000000046A /* Sources (Ext) */ = {
+		AA110000000000000000046A /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 				AA110000000000000000036A /* ShareViewController.swift in Sources */,
 				AA110000000000000000037A /* ShareView.swift in Sources */,
-				AA110000000000000000038A /* Theme.swift in Sources (Ext) */,
-				AA110000000000000000039A /* Models.swift in Sources (Ext) */,
-				AA110000000000000000040A /* Settings.swift in Sources (Ext) */,
-				AA110000000000000000041A /* APIClient.swift in Sources (Ext) */,
+				AA110000000000000000038A /* Theme.swift in Sources */,
+				AA110000000000000000039A /* Models.swift in Sources */,
+				AA110000000000000000040A /* Settings.swift in Sources */,
+				AA110000000000000000041A /* APIClient.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -409,14 +413,14 @@
 				CODE_SIGN_ENTITLEMENTS = SFL/SFL.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = 7L482847WS;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight UIInterfaceOrientationPortrait";
-				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -437,14 +441,14 @@
 				CODE_SIGN_ENTITLEMENTS = SFL/SFL.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = 7L482847WS;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight UIInterfaceOrientationPortrait";
-				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -464,9 +468,9 @@
 				CODE_SIGN_ENTITLEMENTS = SFLShareExtension/SFLShareExtension.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = 7L482847WS;
 				INFOPLIST_FILE = SFLShareExtension/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -488,9 +492,9 @@
 				CODE_SIGN_ENTITLEMENTS = SFLShareExtension/SFLShareExtension.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = 7L482847WS;
 				INFOPLIST_FILE = SFLShareExtension/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -537,7 +541,6 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
-
 	};
 	rootObject = AA110000000000000000001A /* Project object */;
 }
