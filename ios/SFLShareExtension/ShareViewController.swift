@@ -3,8 +3,7 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 // The principal class for the Share Extension.
-// Extracts URL/text from the NSExtensionItem, then presents the SwiftUI capture UI.
-@objc(ShareViewController)
+// Referenced from Info.plist as $(PRODUCT_MODULE_NAME).ShareViewController.
 class ShareViewController: UIViewController {
 
     private let shareContext = ShareContext()
