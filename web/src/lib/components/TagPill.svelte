@@ -14,17 +14,18 @@
 <style>
   .tag-pill {
     display: inline-block;
-    padding: 2px 10px;
-    border-radius: 999px;
-    background: #e8f0fe;
-    color: #1a73e8;
+    padding: 2px 8px;
+    border-radius: var(--r, 4px);
+    background: transparent;
+    color: var(--muted, #6b7280);
     font-size: 0.78rem;
     font-weight: 500;
-    border: none;
+    border: 1px solid var(--stroke, #252836);
     cursor: pointer;
-    transition: background 0.15s;
+    transition: color 0.1s, border-color 0.1s;
   }
   .tag-pill:hover {
-    background: #d2e3fc;
+    color: var(--accent, #c4f442);
+    border-color: var(--accent, #c4f442);
   }
 </style>

@@ -196,58 +196,88 @@
 <style>
   dialog.backdrop {
     position: fixed; inset: 0;
-    background: rgba(0,0,0,0.4);
+    background: rgba(0,0,0,0.65);
     display: flex; align-items: center; justify-content: center;
     z-index: 100;
     border: none;
-    padding: 0;
+    padding: 16px;
     max-width: 100%;
     max-height: 100%;
     width: 100%;
     height: 100%;
   }
   .modal {
-    background: #fff;
-    border-radius: 10px;
+    background: var(--surface, #13161f);
+    border: 2px solid var(--stroke, #252836);
+    border-radius: var(--r, 4px);
     padding: 28px;
     width: 100%;
     max-width: 520px;
-    box-shadow: 0 8px 40px rgba(0,0,0,0.18);
+    box-shadow: 6px 6px 0 #0c0f1a;
+    max-height: calc(100vh - 32px);
+    overflow-y: auto;
   }
-  h2 { margin: 0 0 20px; font-size: 1.2rem; }
-  label { display: flex; flex-direction: column; gap: 4px; font-size: 0.85rem; color: #555; margin-bottom: 14px; }
+  h2 { margin: 0 0 20px; font-size: 1.2rem; font-weight: 800; color: var(--text, #efefed); }
+  label { display: flex; flex-direction: column; gap: 4px; font-size: 0.85rem; color: var(--muted, #6b7280); margin-bottom: 14px; }
   input, select, textarea {
     padding: 8px 10px;
-    border: 1px solid #ddd;
-    border-radius: 6px;
+    border: 2px solid var(--stroke, #252836);
+    border-radius: var(--r, 4px);
+    background: var(--bg, #0b0d14);
+    color: var(--text, #efefed);
     font-size: 0.9rem;
     font-family: inherit;
+    outline: none;
+    transition: border-color 0.1s;
   }
+  input:focus, select:focus, textarea:focus { border-color: var(--accent, #c4f442); }
+  input::placeholder, textarea::placeholder { color: var(--muted, #6b7280); }
   textarea { resize: vertical; }
+  select option { background: var(--surface, #13161f); }
   .tag-section { margin-bottom: 14px; }
-  .label { font-size: 0.85rem; color: #555; display: block; margin-bottom: 6px; }
+  .label { font-size: 0.85rem; color: var(--muted, #6b7280); display: block; margin-bottom: 6px; }
   .tag-list { display: flex; flex-wrap: wrap; gap: 6px; }
   .tag-btn {
     padding: 3px 10px;
-    border-radius: 999px;
-    border: 1px solid #ddd;
-    background: #f5f5f5;
+    border-radius: var(--r, 4px);
+    border: 1px solid var(--stroke, #252836);
+    background: transparent;
+    color: var(--muted, #6b7280);
     cursor: pointer;
     font-size: 0.8rem;
+    transition: color 0.1s, border-color 0.1s;
   }
-  .tag-btn.selected { background: #1a73e8; color: #fff; border-color: #1a73e8; }
-  .error { color: #d32f2f; font-size: 0.85rem; margin: 0 0 12px; }
+  .tag-btn:hover { color: var(--text, #efefed); border-color: var(--text, #efefed); }
+  .tag-btn.selected { background: var(--accent, #c4f442); color: #0b0d14; border-color: var(--accent, #c4f442); font-weight: 700; }
+  .error { color: #f87171; font-size: 0.85rem; margin: 0 0 12px; }
   .footer { display: flex; justify-content: flex-end; gap: 10px; margin-top: 8px; }
   button {
     padding: 8px 18px;
-    border-radius: 6px;
-    border: 1px solid #ddd;
-    background: #fff;
+    border-radius: var(--r, 4px);
+    border: 2px solid var(--stroke, #252836);
+    background: transparent;
+    color: var(--text, #efefed);
     cursor: pointer;
     font-size: 0.9rem;
+    font-weight: 600;
+    transition: border-color 0.1s, color 0.1s;
   }
-  button.primary { background: #1a73e8; color: #fff; border-color: #1a73e8; }
-  button:disabled { opacity: 0.5; cursor: default; }
-  .optional { font-weight: 400; color: #aaa; }
-  .file-hint { margin: -8px 0 6px; font-size: 0.8rem; color: #555; }
+  button:hover { border-color: var(--text, #efefed); }
+  button.primary {
+    background: var(--accent, #c4f442);
+    color: #0b0d14;
+    border-color: var(--accent, #c4f442);
+    box-shadow: var(--shadow, 3px 3px 0 #1c1f2c);
+  }
+  button.primary:hover {
+    box-shadow: var(--shadow-hover, 5px 5px 0 #1c1f2c);
+    transform: translate(-1px, -1px);
+  }
+  button.primary:active {
+    box-shadow: 1px 1px 0 #1c1f2c;
+    transform: translate(1px, 1px);
+  }
+  button:disabled { opacity: 0.4; cursor: default; transform: none !important; box-shadow: none !important; }
+  .optional { font-weight: 400; color: var(--muted, #6b7280); }
+  .file-hint { margin: -8px 0 6px; font-size: 0.8rem; color: var(--muted, #6b7280); }
 </style>

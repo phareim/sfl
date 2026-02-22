@@ -34,11 +34,18 @@
   input {
     flex: 1;
     padding: 8px 14px;
-    border: 1px solid #ddd;
-    border-radius: 6px;
+    border: 2px solid var(--stroke, #252836);
+    border-radius: var(--r, 4px);
+    background: var(--surface, #13161f);
+    color: var(--text, #efefed);
     font-size: 0.9rem;
     outline: none;
-    transition: border-color 0.15s;
+    box-shadow: var(--shadow, 3px 3px 0 #1c1f2c);
+    transition: border-color 0.1s, box-shadow 0.1s;
   }
-  input:focus { border-color: #1a73e8; }
+  input::placeholder { color: var(--muted, #6b7280); }
+  input:focus {
+    border-color: var(--accent, #c4f442);
+    box-shadow: var(--shadow-hover, 5px 5px 0 #1c1f2c);
+  }
 </style>

@@ -49,6 +49,6 @@
     gap: 14px;
   }
 
-  .muted { color: #aaa; }
-  .error { color: #d32f2f; }
+  .muted { color: var(--muted); }
+  .error { color: #f87171; }
 </style>

@@ -77,24 +77,33 @@
 
 <style>
   :global(*, *::before, *::after) { box-sizing: border-box; }
+  :global(:root) {
+    --bg: #0b0d14;
+    --surface: #13161f;
+    --stroke: #252836;
+    --text: #efefed;
+    --muted: #6b7280;
+    --accent: #c4f442;
+    --r: 4px;
+    --shadow: 3px 3px 0 #1c1f2c;
+    --shadow-hover: 5px 5px 0 #1c1f2c;
+  }
   :global(body) {
     margin: 0;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-    background: #f7f7f5;
-    color: #1a1a1a;
+    background: var(--bg);
+    color: var(--text);
   }
 
   .content {
     max-width: 1100px;
     margin: 0 auto;
-    padding: 40px 24px 100px; /* bottom pad clears mobile FAB */
+    padding: 40px 24px 100px;
   }
 
-  /* FAB */
   .fab-wrap {
     position: fixed;
     z-index: 200;
-    /* Mobile: bottom-left */
     bottom: 20px;
     left: 20px;
   }
@@ -102,47 +111,53 @@
   .fab {
     width: 52px;
     height: 52px;
-    border-radius: 50%;
-    background: #1a1a1a;
-    color: #fff;
-    border: none;
-    font-size: 1.5rem;
+    border-radius: var(--r);
+    background: var(--accent);
+    color: #0b0d14;
+    border: 2px solid #0b0d14;
+    font-size: 1.4rem;
+    font-weight: 900;
     line-height: 1;
     cursor: pointer;
-    box-shadow: 0 3px 16px rgba(0, 0, 0, 0.28);
+    box-shadow: var(--shadow);
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: background 0.15s, transform 0.12s;
+    transition: box-shadow 0.1s, transform 0.1s;
   }
   .fab:hover {
-    background: #333;
-    transform: scale(1.06);
+    box-shadow: var(--shadow-hover);
+    transform: translate(-1px, -1px);
+  }
+  .fab:active {
+    box-shadow: 1px 1px 0 #1c1f2c;
+    transform: translate(1px, 1px);
   }
 
   /* Nav panel: opens upward on mobile */
   .nav-panel {
     position: absolute;
-    bottom: calc(100% + 12px);
+    bottom: calc(100% + 10px);
     left: 0;
-    background: #fff;
-    border-radius: 14px;
-    box-shadow: 0 6px 32px rgba(0, 0, 0, 0.14);
-    padding: 16px;
+    background: var(--surface);
+    border: 2px solid var(--stroke);
+    border-radius: var(--r);
+    box-shadow: var(--shadow-hover);
+    padding: 14px;
     min-width: 190px;
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 8px;
   }
 
   .logo {
-    font-size: 1.3rem;
-    font-weight: 800;
+    font-size: 1.4rem;
+    font-weight: 900;
     letter-spacing: -0.04em;
     text-decoration: none;
-    color: #1a1a1a;
-    padding: 0 4px 4px;
-    border-bottom: 1px solid #eee;
+    color: var(--accent);
+    padding: 0 4px 8px;
+    border-bottom: 1px solid var(--stroke);
   }
 
   ul {
@@ -156,44 +171,49 @@
 
   li a {
     display: block;
-    padding: 8px 10px;
-    border-radius: 8px;
+    padding: 7px 10px;
+    border-radius: var(--r);
     text-decoration: none;
-    color: #444;
+    color: var(--muted);
     font-size: 0.92rem;
     font-weight: 500;
-    transition: background 0.1s;
+    transition: color 0.1s;
   }
-  li a:hover { background: #f5f5f5; color: #1a1a1a; }
-  li.active a { background: #1a1a1a; color: #fff; }
+  li a:hover { color: var(--text); }
+  li.active a { background: var(--accent); color: #0b0d14; font-weight: 700; }
 
   .capture-btn {
-    background: #1a73e8;
-    color: #fff;
+    background: var(--accent);
+    color: #0b0d14;
     border: none;
-    border-radius: 8px;
+    border-radius: var(--r);
     padding: 10px 14px;
     font-size: 0.9rem;
-    font-weight: 600;
+    font-weight: 700;
     cursor: pointer;
-    transition: background 0.15s;
+    box-shadow: var(--shadow);
+    transition: box-shadow 0.1s, transform 0.1s;
     text-align: center;
   }
-  .capture-btn:hover { background: #1557b0; }
+  .capture-btn:hover {
+    box-shadow: var(--shadow-hover);
+    transform: translate(-1px, -1px);
+  }
+  .capture-btn:active {
+    box-shadow: 1px 1px 0 #1c1f2c;
+    transform: translate(1px, 1px);
+  }
 
-  /* Desktop: move FAB to top-left, panel opens downward */
   @media (min-width: 700px) {
     .fab-wrap {
       bottom: auto;
       top: 20px;
       left: 20px;
     }
-
     .nav-panel {
       bottom: auto;
-      top: calc(100% + 12px);
+      top: calc(100% + 10px);
     }
-
     .content {
       padding: 40px 32px 40px;
     }

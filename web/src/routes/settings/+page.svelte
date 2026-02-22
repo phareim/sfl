@@ -47,30 +47,42 @@
 </form>
 
 <style>
-  h1 { margin: 0 0 28px; font-size: 1.5rem; }
+  h1 { margin: 0 0 28px; font-size: 1.5rem; font-weight: 800; }
   .settings-form { max-width: 480px; display: flex; flex-direction: column; gap: 20px; }
-  label { display: flex; flex-direction: column; gap: 6px; font-size: 0.9rem; font-weight: 500; }
+  label { display: flex; flex-direction: column; gap: 6px; font-size: 0.9rem; font-weight: 600; }
   input {
     padding: 9px 12px;
-    border: 1px solid #ddd;
-    border-radius: 6px;
+    border: 2px solid var(--stroke);
+    border-radius: var(--r);
+    background: var(--surface);
+    color: var(--text);
     font-size: 0.9rem;
     outline: none;
-    transition: border-color 0.15s;
+    box-shadow: var(--shadow);
+    transition: border-color 0.1s;
   }
-  input:focus { border-color: #1a73e8; }
-  .hint { font-size: 0.78rem; color: #aaa; font-weight: 400; }
+  input:focus { border-color: var(--accent); }
+  input::placeholder { color: var(--muted); }
+  .hint { font-size: 0.78rem; color: var(--muted); font-weight: 400; }
   button {
     align-self: flex-start;
     padding: 9px 22px;
-    background: #1a73e8;
-    color: #fff;
+    background: var(--accent);
+    color: #0b0d14;
     border: none;
-    border-radius: 6px;
+    border-radius: var(--r);
     font-size: 0.9rem;
-    font-weight: 600;
+    font-weight: 700;
     cursor: pointer;
-    transition: background 0.15s;
+    box-shadow: var(--shadow);
+    transition: box-shadow 0.1s, transform 0.1s;
   }
-  button:hover { background: #1557b0; }
+  button:hover {
+    box-shadow: var(--shadow-hover);
+    transform: translate(-1px, -1px);
+  }
+  button:active {
+    box-shadow: 1px 1px 0 #1c1f2c;
+    transform: translate(1px, 1px);
+  }
 </style>
