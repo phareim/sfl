@@ -85,8 +85,9 @@ struct IdeaDetailView: View {
                     sectionBlock(label: "TAGS") {
                         FlowLayout(spacing: 8) {
                             ForEach(idea.tags) { conn in
-                                NavigationLink(destination: IdeaDetailView(id: conn.idea.id)) {
-                                    TagPill(title: conn.idea.displayTitle)
+                                let tag = conn.other(from: idea.id)
+                                NavigationLink(destination: IdeaDetailView(id: tag.id)) {
+                                    TagPill(title: tag.title)
                                 }
                                 .buttonStyle(.plain)
                             }
@@ -127,8 +128,9 @@ struct IdeaDetailView: View {
                     sectionBlock(label: "CONNECTIONS") {
                         VStack(spacing: 8) {
                             ForEach(idea.relatedConnections) { conn in
-                                NavigationLink(destination: IdeaDetailView(id: conn.idea.id)) {
-                                    ConnectionRow(connection: conn)
+                                let other = conn.other(from: idea.id)
+                                NavigationLink(destination: IdeaDetailView(id: other.id)) {
+                                    ConnectionRow(connection: conn, ideaId: idea.id)
                                 }
                                 .buttonStyle(.plain)
                             }
@@ -255,12 +257,14 @@ struct TagPill: View {
 
 struct ConnectionRow: View {
     let connection: Connection
+    let ideaId: String
 
     var body: some View {
-        let type = connection.idea.type.ideaType
+        let other = connection.other(from: ideaId)
+        let type = other.type.ideaType
         HStack {
             Text(type.icon).font(.system(size: 13))
-            Text(connection.idea.displayTitle)
+            Text(other.title)
                 .font(.sflCardTitle)
                 .foregroundStyle(Color.sflText)
                 .lineLimit(1)

@@ -81,20 +81,35 @@ struct IdeaData: Codable {
 }
 
 // MARK: - Connection
+//
+// The API returns flat columns from a JOIN — no nested idea object.
+// Schema: { id, label, created_at, from_id, from_type, from_title, to_id, to_type, to_title }
 
 struct Connection: Codable, Identifiable {
     let id: String
     let label: String?
-    let direction: String?  // "from" | "to"
-    let idea: ConnectedIdea
+    let fromId: String
+    let fromType: String
+    let fromTitle: String?
+    let toId: String
+    let toType: String
+    let toTitle: String?
 
-    struct ConnectedIdea: Codable, Identifiable {
-        let id: String
-        let type: String
-        let title: String?
-        let url: String?
+    enum CodingKeys: String, CodingKey {
+        case id, label
+        case fromId = "from_id"
+        case fromType = "from_type"
+        case fromTitle = "from_title"
+        case toId = "to_id"
+        case toType = "to_type"
+        case toTitle = "to_title"
+    }
 
-        var displayTitle: String { title ?? url ?? "(untitled)" }
+    /// The idea on the other end of this connection from `ideaId`.
+    func other(from ideaId: String) -> (id: String, type: String, title: String) {
+        fromId == ideaId
+            ? (toId, toType, toTitle ?? "")
+            : (fromId, fromType, fromTitle ?? "")
     }
 }
 
@@ -123,6 +138,11 @@ struct Note: Codable, Identifiable {
 struct IdeasResponse: Codable {
     let ideas: [Idea]
     let cursor: String?
+
+    enum CodingKeys: String, CodingKey {
+        case ideas
+        case cursor = "nextCursor"
+    }
 }
 
 struct CreateIdeaBody: Codable {
