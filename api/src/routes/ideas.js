@@ -119,6 +119,72 @@ ideas.put('/:id', async (c) => {
   return c.json({ idea, data: blobData ?? {} });
 });
 
+// POST /api/ideas/:id/fetch-content
+ideas.post('/:id/fetch-content', async (c) => {
+  const id = c.req.param('id');
+  const idea = await getIdea(c.env.DB, id);
+  if (!idea) return notFound('Idea not found');
+  if (idea.type !== 'page') return badRequest('Only page ideas support content fetching');
+  if (!idea.url) return badRequest('Idea has no URL');
+
+  const existing = (await getJson(c.env.R2, idea.r2_key)) ?? {};
+  const text = await extractArticleText(idea.url);
+
+  const updated = text ? { ...existing, text } : { ...existing, article: false };
+  await putJson(c.env.R2, idea.r2_key, updated);
+  return c.json({ data: updated });
+});
+
+async function extractArticleText(url) {
+  let response;
+  try {
+    response = await fetch(url, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; SFL/1.0)' },
+      redirect: 'follow',
+    });
+  } catch {
+    return null;
+  }
+
+  if (!response.ok) return null;
+  if (!(response.headers.get('content-type') ?? '').includes('text/html')) return null;
+
+  let skipDepth = 0;
+  let currentPara = null;
+  const paragraphs = [];
+
+  await new HTMLRewriter()
+    .on('nav, header, footer, aside, script, style, noscript', {
+      element(el) {
+        skipDepth++;
+        el.onEndTag(() => { skipDepth--; });
+      },
+    })
+    .on('p', {
+      element(el) {
+        if (skipDepth > 0) return;
+        currentPara = '';
+        el.onEndTag(() => {
+          if (currentPara !== null && currentPara.trim().split(/\s+/).length >= 8) {
+            paragraphs.push(currentPara.trim());
+          }
+          currentPara = null;
+        });
+      },
+      text(chunk) {
+        if (currentPara !== null && skipDepth === 0) {
+          currentPara += chunk.text;
+        }
+      },
+    })
+    .transform(response)
+    .arrayBuffer();
+
+  const joined = paragraphs.join('\n\n');
+  if (paragraphs.length < 3 || joined.length < 500) return null;
+  return joined;
+}
+
 // DELETE /api/ideas/:id
 ideas.delete('/:id', async (c) => {
   const id = c.req.param('id');

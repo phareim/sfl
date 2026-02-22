@@ -31,6 +31,10 @@ export function deleteIdea(id) {
   return apiFetch(`/api/ideas/${id}`, { method: 'DELETE' });
 }
 
+export function fetchContent(id) {
+  return apiFetch(`/api/ideas/${id}/fetch-content`, { method: 'POST' });
+}
+
 export function searchIdeas(q, params = {}) {
   const qs = new URLSearchParams({ q, ...params }).toString();
   return apiFetch(`/api/ideas/search?${qs}`);

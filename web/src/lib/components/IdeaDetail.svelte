@@ -4,7 +4,7 @@
   import TagEditor from './TagEditor.svelte';
   import IdeaCard from './IdeaCard.svelte';
   import { updateNote } from '../api/notes.js';
-  import { updateIdea } from '../api/ideas.js';
+  import { updateIdea, fetchContent } from '../api/ideas.js';
 
   export let idea;
   export let data = {};
@@ -34,6 +34,18 @@
   function startEditTitle() {
     titleDraft = idea.title ?? '';
     editingTitle = true;
+  }
+
+  let fetching = false;
+
+  async function doFetchContent() {
+    fetching = true;
+    try {
+      const result = await fetchContent(idea.id);
+      data = result.data;
+    } finally {
+      fetching = false;
+    }
   }
 
   async function saveTitle() {
@@ -208,7 +220,13 @@
       </section>
     {/if}
 
-    {#if data.content}
+    {#if idea.type === 'page' && data.text}
+      <section class="reader" style="--article-accent: {accent}">
+        {#each data.text.split('\n\n').filter(Boolean) as para}
+          <p>{para}</p>
+        {/each}
+      </section>
+    {:else if data.content}
       <section class="content">
         <pre>{data.content}</pre>
       </section>
@@ -221,6 +239,16 @@
       <section class="content">
         <blockquote style="border-left-color: {accent};">{data.selected_text}</blockquote>
       </section>
+    {/if}
+
+    {#if idea.type === 'page' && !data.text}
+      {#if data.article === false}
+        <p class="not-article">Not an article — no full text available</p>
+      {:else}
+        <button class="fetch-btn" on:click={doFetchContent} disabled={fetching}>
+          {fetching ? 'Fetching…' : 'Fetch full article'}
+        </button>
+      {/if}
     {/if}
 
     {#if relatedConnections.length > 0}
@@ -457,6 +485,50 @@
   }
 
   .muted { color: var(--muted); }
+
+  /* ── READER VIEW ── */
+  .reader {
+    margin: 28px 0;
+    padding: 28px 32px;
+    border: 2px solid var(--stroke);
+    border-left: 4px solid var(--article-accent, var(--stroke));
+    border-radius: var(--r);
+    background: var(--surface);
+    box-shadow: var(--shadow);
+  }
+  .reader p {
+    margin: 0 0 1.4em;
+    font-size: 1.05rem;
+    line-height: 1.75;
+    color: var(--text);
+  }
+  .reader p:last-child { margin-bottom: 0; }
+
+  .fetch-btn {
+    margin-top: 20px;
+    padding: 9px 20px;
+    background: transparent;
+    border: 2px solid var(--stroke);
+    border-radius: var(--r);
+    color: var(--text);
+    font-size: 0.88rem;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: var(--shadow);
+    transition: box-shadow 0.1s, transform 0.1s;
+  }
+  .fetch-btn:hover { box-shadow: var(--shadow-hover); transform: translate(-1px, -1px); }
+  .fetch-btn:active { box-shadow: none; transform: translate(1px, 1px); }
+  .fetch-btn:disabled { opacity: 0.5; cursor: default; transform: none !important; box-shadow: none !important; }
+
+  .not-article {
+    margin-top: 16px;
+    font-size: 0.82rem;
+    color: var(--muted);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
 
   /* ── VIDEO ── */
   .video-embed {
