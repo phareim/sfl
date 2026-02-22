@@ -1,5 +1,59 @@
 import SwiftUI
 
+// MARK: - Local copies of shared UI components (not in extension target)
+
+private struct TypeChip: View {
+    let type: String
+    let selected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 4) {
+                Text(type.ideaType.icon).font(.system(size: 12))
+                Text(type.ideaType.label).font(.sflLabel).tracking(0.5)
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(selected ? Color.sflAccent : Color.sflSurface)
+            .foregroundStyle(selected ? Color.sflInk : Color.sflMuted)
+            .overlay(RoundedRectangle(cornerRadius: 4)
+                .strokeBorder(selected ? Color.clear : Color.sflStroke, lineWidth: 1))
+            .clipShape(RoundedRectangle(cornerRadius: 4))
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+private struct SFLField: View {
+    let label: String
+    let placeholder: String
+    @Binding var text: String
+    var secure: Bool = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(label).font(.sflLabel).tracking(1).foregroundStyle(Color.sflMuted)
+            Group {
+                if secure {
+                    SecureField(placeholder, text: $text)
+                } else {
+                    TextField(placeholder, text: $text)
+                        .autocorrectionDisabled()
+                        .textInputAutocapitalization(.never)
+                }
+            }
+            .font(.sflBody)
+            .padding(12)
+            .background(Color.sflSurface)
+            .foregroundStyle(Color.sflText)
+            .overlay(RoundedRectangle(cornerRadius: 4)
+                .strokeBorder(Color.sflStroke, lineWidth: 2))
+            .clipShape(RoundedRectangle(cornerRadius: 4))
+        }
+    }
+}
+
 // MARK: - Share Context (passed from ViewController to SwiftUI)
 
 @MainActor
