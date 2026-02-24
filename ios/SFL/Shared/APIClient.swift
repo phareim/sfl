@@ -114,6 +114,18 @@ final class APIClient {
         let response: CreateResponse = try await post("/api/ideas", body: body)
         return response.idea
     }
+
+    func listTags() async throws -> [Idea] {
+        struct Response: Decodable { let tags: [Idea] }
+        let response: Response = try await get("/api/tags")
+        return response.tags
+    }
+
+    func createConnection(fromId: String, toId: String, label: String) async throws {
+        struct Body: Encodable { let from_id: String; let to_id: String; let label: String }
+        struct Response: Decodable { let connection: Min; struct Min: Decodable { let id: String } }
+        let _: Response = try await post("/api/connections", body: Body(from_id: fromId, to_id: toId, label: label))
+    }
 }
 
 private extension String {

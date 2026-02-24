@@ -54,6 +54,33 @@ private struct SFLField: View {
     }
 }
 
+// MARK: - Tag Flow Layout
+
+private struct TagFlow: Layout {
+    var spacing: CGFloat = 6
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout Void) -> CGSize {
+        let width = proposal.width ?? 0
+        var x: CGFloat = 0; var y: CGFloat = 0; var rowH: CGFloat = 0
+        for v in subviews {
+            let s = v.sizeThatFits(.unspecified)
+            if x + s.width > width, x > 0 { x = 0; y += rowH + spacing; rowH = 0 }
+            x += s.width + spacing; rowH = max(rowH, s.height)
+        }
+        return CGSize(width: width, height: y + rowH)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout Void) {
+        var x = bounds.minX; var y = bounds.minY; var rowH: CGFloat = 0
+        for v in subviews {
+            let s = v.sizeThatFits(.unspecified)
+            if x + s.width > bounds.maxX, x > bounds.minX { x = bounds.minX; y += rowH + spacing; rowH = 0 }
+            v.place(at: CGPoint(x: x, y: y), proposal: ProposedViewSize(s))
+            x += s.width + spacing; rowH = max(rowH, s.height)
+        }
+    }
+}
+
 // MARK: - Share Context (passed from ViewController to SwiftUI)
 
 @MainActor
@@ -71,11 +98,40 @@ struct ShareView: View {
     let onComplete: () -> Void
     let onCancel: () -> Void
 
+    private struct TagItem: Identifiable, Equatable {
+        let id: String
+        let name: String
+        let isNew: Bool
+        init(existing idea: Idea) { id = idea.id; name = idea.title ?? ""; isNew = false }
+        init(newName: String) { id = UUID().uuidString; name = newName; isNew = true }
+    }
+
     @State private var title = ""
     @State private var selectedType = "page"
     @State private var isSaving = false
     @State private var error: String?
     @State private var didSave = false
+
+    @State private var allTags: [Idea] = []
+    @State private var selectedTags: [TagItem] = []
+    @State private var tagQuery = ""
+    @FocusState private var tagFieldFocused: Bool
+
+    private var tagSuggestions: [Idea] {
+        let selected = Set(selectedTags.filter { !$0.isNew }.map(\.id))
+        let pool = tagQuery.isEmpty
+            ? allTags.filter { !selected.contains($0.id) }
+            : allTags.filter { !selected.contains($0.id) && ($0.title ?? "").localizedCaseInsensitiveContains(tagQuery) }
+        return Array(pool.prefix(6))
+    }
+
+    private var canCreateNewTag: Bool {
+        let q = tagQuery.trimmingCharacters(in: .whitespaces)
+        guard !q.isEmpty else { return false }
+        let exists = allTags.contains { ($0.title ?? "").lowercased() == q.lowercased() }
+        let picked = selectedTags.contains { $0.name.lowercased() == q.lowercased() }
+        return !exists && !picked
+    }
 
     private var availableTypes: [IdeaType] {
         context.url != nil
@@ -121,6 +177,31 @@ struct ShareView: View {
         .onChange(of: context.suggestedTitle) { _, t in
             if title.isEmpty { title = t }
         }
+        .task {
+            if let tags = try? await APIClient.shared.listTags() {
+                allTags = tags
+            }
+        }
+    }
+
+    // MARK: - Tag helpers
+
+    private func addExistingTag(_ idea: Idea) {
+        guard !selectedTags.contains(where: { $0.id == idea.id }) else { return }
+        selectedTags.append(TagItem(existing: idea))
+        tagQuery = ""
+    }
+
+    private func addNewTag() {
+        let name = tagQuery.trimmingCharacters(in: .whitespaces)
+        guard !name.isEmpty,
+              !selectedTags.contains(where: { $0.name.lowercased() == name.lowercased() }) else { return }
+        selectedTags.append(TagItem(newName: name))
+        tagQuery = ""
+    }
+
+    private func removeTag(_ tag: TagItem) {
+        selectedTags.removeAll { $0.id == tag.id }
     }
 
     // MARK: - Sub-views
@@ -182,6 +263,9 @@ struct ShareView: View {
             // Title field
             SFLField(label: "TITLE", placeholder: "Describe this idea…", text: $title)
 
+            // Tags
+            tagsSection
+
             // Error
             if let error {
                 Text(error)
@@ -230,6 +314,99 @@ struct ShareView: View {
                         .strokeBorder(Color.sflStroke, lineWidth: 1)
                 )
                 .clipShape(RoundedRectangle(cornerRadius: 4))
+        }
+    }
+
+    private var tagsSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("TAGS")
+                .font(.sflLabel)
+                .tracking(1)
+                .foregroundStyle(Color.sflMuted)
+
+            if !selectedTags.isEmpty {
+                TagFlow(spacing: 6) {
+                    ForEach(selectedTags) { tag in
+                        HStack(spacing: 4) {
+                            Text("#\(tag.name)")
+                                .font(.sflSmall)
+                                .foregroundStyle(Color(hex: "#94a3b8"))
+                            Button { removeTag(tag) } label: {
+                                Image(systemName: "xmark")
+                                    .font(.system(size: 9, weight: .bold))
+                                    .foregroundStyle(Color.sflMuted)
+                            }
+                        }
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(Color.sflSurface)
+                        .overlay(RoundedRectangle(cornerRadius: 12)
+                            .strokeBorder(Color(hex: "#94a3b8").opacity(0.4), lineWidth: 1))
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                    }
+                }
+            }
+
+            HStack(spacing: 8) {
+                Image(systemName: "tag")
+                    .font(.system(size: 13))
+                    .foregroundStyle(Color.sflMuted)
+                TextField("Search or add tags…", text: $tagQuery)
+                    .font(.sflBody)
+                    .autocorrectionDisabled()
+                    .textInputAutocapitalization(.never)
+                    .focused($tagFieldFocused)
+                    .onSubmit { if canCreateNewTag { addNewTag() } }
+            }
+            .padding(12)
+            .background(Color.sflSurface)
+            .foregroundStyle(Color.sflText)
+            .overlay(RoundedRectangle(cornerRadius: 4)
+                .strokeBorder(
+                    tagFieldFocused ? Color.sflAccent : Color.sflStroke,
+                    lineWidth: tagFieldFocused ? 2 : 1
+                ))
+            .clipShape(RoundedRectangle(cornerRadius: 4))
+
+            if tagFieldFocused && (!tagSuggestions.isEmpty || canCreateNewTag) {
+                VStack(alignment: .leading, spacing: 0) {
+                    ForEach(Array(tagSuggestions.enumerated()), id: \.element.id) { idx, idea in
+                        if idx > 0 { Divider().overlay(Color.sflStroke) }
+                        Button { addExistingTag(idea) } label: {
+                            HStack(spacing: 6) {
+                                Text("🏷️").font(.system(size: 11))
+                                Text(idea.title ?? "")
+                                    .font(.sflBody)
+                                    .foregroundStyle(Color.sflText)
+                                Spacer()
+                            }
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 9)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    if canCreateNewTag {
+                        if !tagSuggestions.isEmpty { Divider().overlay(Color.sflStroke) }
+                        Button { addNewTag() } label: {
+                            HStack(spacing: 6) {
+                                Image(systemName: "plus.circle.fill")
+                                    .font(.system(size: 13))
+                                    .foregroundStyle(Color.sflAccent)
+                                Text("Create \"#\(tagQuery.trimmingCharacters(in: .whitespaces))\"")
+                                    .font(.sflBody)
+                                    .foregroundStyle(Color.sflText)
+                                Spacer()
+                            }
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 9)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .background(Color.sflSurface)
+                .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(Color.sflStroke, lineWidth: 1))
+                .clipShape(RoundedRectangle(cornerRadius: 4))
+            }
         }
     }
 
@@ -287,12 +464,24 @@ struct ShareView: View {
             let textContent = context.text
             let t = title.isEmpty ? (urlString ?? textContent ?? "") : title
 
-            try await APIClient.shared.createIdea(
+            let created = try await APIClient.shared.createIdea(
                 type: selectedType,
                 title: t.isEmpty ? nil : t,
                 url: urlString,
                 summary: selectedType == "note" ? textContent : nil
             )
+
+            for tag in selectedTags {
+                let tagId: String
+                if tag.isNew {
+                    let newTag = try await APIClient.shared.createIdea(type: "tag", title: tag.name, url: nil)
+                    tagId = newTag.id
+                } else {
+                    tagId = tag.id
+                }
+                try await APIClient.shared.createConnection(fromId: created.id, toId: tagId, label: "tagged_with")
+            }
+
             didSave = true
             try? await Task.sleep(for: .milliseconds(600))
             onComplete()
