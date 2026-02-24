@@ -124,7 +124,7 @@ struct IdeaDetailView: View {
             if let idea = vm.idea {
                 TagPickerSheet(
                     existingTagIds: Set(idea.tags.map(\.toId)),
-                    onAddExisting: { tagId in vm.addTag(ideaId: idea.id, tagId: tagId) },
+                    onAddExisting: { tag in vm.addTag(ideaId: idea.id, tagId: tag.id) },
                     onAddNew: { name in vm.addNewTag(ideaId: idea.id, name: name) }
                 )
             }
@@ -184,36 +184,66 @@ struct IdeaDetailView: View {
                     .padding(.bottom, 20)
                 }
 
-                // Tags — always shown so you can add
-                sectionBlock(label: "TAGS") {
-                    VStack(alignment: .leading, spacing: 10) {
-                        if !idea.tags.isEmpty {
-                            FlowLayout(spacing: 8) {
+                if idea.type == "tag" {
+                    // Tag detail: list the ideas tagged with this tag
+                    if !idea.tags.isEmpty {
+                        sectionBlock(label: "IDEAS") {
+                            VStack(spacing: 8) {
                                 ForEach(idea.tags) { conn in
-                                    let tag = conn.other(from: idea.id)
-                                    NavigationLink(destination: IdeaDetailView(id: tag.id)) {
-                                        TagPill(title: tag.title)
+                                    let other = conn.other(from: idea.id)
+                                    NavigationLink(destination: IdeaDetailView(id: other.id)) {
+                                        HStack(spacing: 10) {
+                                            Text(other.type.ideaType.icon).font(.system(size: 14))
+                                            Text(other.title.isEmpty ? "(untitled)" : other.title)
+                                                .font(.sflCardTitle)
+                                                .foregroundStyle(Color.sflText)
+                                                .lineLimit(2)
+                                            Spacer()
+                                            Image(systemName: "chevron.right")
+                                                .font(.system(size: 11, weight: .semibold))
+                                                .foregroundStyle(Color.sflMuted)
+                                        }
+                                        .padding(12)
+                                        .sflCard(typeColor: other.type.ideaType.color)
                                     }
                                     .buttonStyle(.plain)
-                                    .contextMenu {
-                                        Button(role: .destructive) {
-                                            vm.removeTag(ideaId: idea.id, connectionId: conn.id)
-                                        } label: {
-                                            Label("Remove tag", systemImage: "tag.slash")
+                                }
+                            }
+                        }
+                        .padding(.bottom, 20)
+                    }
+                } else {
+                    // Regular idea: removable tag pills + add button
+                    sectionBlock(label: "TAGS") {
+                        VStack(alignment: .leading, spacing: 10) {
+                            if !idea.tags.isEmpty {
+                                FlowLayout(spacing: 8) {
+                                    ForEach(idea.tags) { conn in
+                                        let tag = conn.other(from: idea.id)
+                                        NavigationLink(destination: IdeaDetailView(id: tag.id)) {
+                                            TagPill(title: tag.title)
+                                        }
+                                        .buttonStyle(.plain)
+                                        .contextMenu {
+                                            Button(role: .destructive) {
+                                                vm.removeTag(ideaId: idea.id, connectionId: conn.id)
+                                            } label: {
+                                                Label("Remove tag", systemImage: "tag.slash")
+                                            }
                                         }
                                     }
                                 }
                             }
+                            Button { showTagPicker = true } label: {
+                                Label("Add tag", systemImage: "plus")
+                                    .font(.sflSmall)
+                                    .foregroundStyle(Color.sflMuted)
+                            }
+                            .buttonStyle(.plain)
                         }
-                        Button { showTagPicker = true } label: {
-                            Label("Add tag", systemImage: "plus")
-                                .font(.sflSmall)
-                                .foregroundStyle(Color.sflMuted)
-                        }
-                        .buttonStyle(.plain)
                     }
+                    .padding(.bottom, 20)
                 }
-                .padding(.bottom, 20)
 
                 // Notes — always shown so you can add
                 sectionBlock(label: "NOTES") {
@@ -374,9 +404,9 @@ struct IdeaDetailView: View {
 
 // MARK: - Tag Picker Sheet
 
-private struct TagPickerSheet: View {
+struct TagPickerSheet: View {
     let existingTagIds: Set<String>
-    let onAddExisting: (String) -> Void
+    let onAddExisting: (Idea) -> Void
     let onAddNew: (String) -> Void
 
     @State private var allTags: [Idea] = []
@@ -416,7 +446,7 @@ private struct TagPickerSheet: View {
                     }
                     ForEach(suggestions) { tag in
                         Button {
-                            onAddExisting(tag.id)
+                            onAddExisting(tag)
                             dismiss()
                         } label: {
                             HStack(spacing: 8) {

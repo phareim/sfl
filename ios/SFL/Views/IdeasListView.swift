@@ -267,8 +267,16 @@ struct IdeasListView: View {
 private struct QuickNoteSheet: View {
     let onSave: () -> Void
 
+    private struct TagDraft: Identifiable {
+        let id: String; let name: String; let isNew: Bool
+        init(existing idea: Idea) { id = idea.id; name = idea.title ?? ""; isNew = false }
+        init(newName: String) { id = UUID().uuidString; name = newName; isNew = true }
+    }
+
     @State private var title = ""
     @State private var noteText = ""
+    @State private var selectedTags: [TagDraft] = []
+    @State private var showTagPicker = false
     @State private var isSaving = false
     @State private var error: String?
     @FocusState private var noteFocused: Bool
@@ -312,6 +320,40 @@ private struct QuickNoteSheet: View {
                                 .clipShape(RoundedRectangle(cornerRadius: 4))
                         }
 
+                        // Tags
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("TAGS")
+                                .font(.sflLabel).tracking(1)
+                                .foregroundStyle(Color.sflMuted)
+                            if !selectedTags.isEmpty {
+                                FlowLayout(spacing: 6) {
+                                    ForEach(selectedTags) { tag in
+                                        HStack(spacing: 4) {
+                                            Text("#\(tag.name)")
+                                                .font(.sflSmall)
+                                                .foregroundStyle(Color(hex: "#94a3b8"))
+                                            Button { selectedTags.removeAll { $0.id == tag.id } } label: {
+                                                Image(systemName: "xmark")
+                                                    .font(.system(size: 9, weight: .bold))
+                                                    .foregroundStyle(Color.sflMuted)
+                                            }
+                                        }
+                                        .padding(.horizontal, 8).padding(.vertical, 4)
+                                        .background(Color.sflSurface)
+                                        .overlay(RoundedRectangle(cornerRadius: 12)
+                                            .strokeBorder(Color(hex: "#94a3b8").opacity(0.4), lineWidth: 1))
+                                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                                    }
+                                }
+                            }
+                            Button { showTagPicker = true } label: {
+                                Label("Add tag", systemImage: "plus")
+                                    .font(.sflSmall)
+                                    .foregroundStyle(Color.sflMuted)
+                            }
+                            .buttonStyle(.plain)
+                        }
+
                         if let error {
                             Text(error).font(.sflSmall).foregroundStyle(.red)
                         }
@@ -321,6 +363,19 @@ private struct QuickNoteSheet: View {
             }
             .navigationTitle("New Note")
             .navigationBarTitleDisplayMode(.inline)
+            .sheet(isPresented: $showTagPicker) {
+                TagPickerSheet(
+                    existingTagIds: Set(selectedTags.filter { !$0.isNew }.map(\.id)),
+                    onAddExisting: { idea in
+                        guard !selectedTags.contains(where: { $0.id == idea.id }) else { return }
+                        selectedTags.append(TagDraft(existing: idea))
+                    },
+                    onAddNew: { name in
+                        guard !selectedTags.contains(where: { $0.name.lowercased() == name.lowercased() }) else { return }
+                        selectedTags.append(TagDraft(newName: name))
+                    }
+                )
+            }
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button("Cancel") { dismiss() }.foregroundStyle(Color.sflMuted)
@@ -343,12 +398,22 @@ private struct QuickNoteSheet: View {
         isSaving = true
         error = nil
         do {
-            try await APIClient.shared.createIdea(
+            let created = try await APIClient.shared.createIdea(
                 type: "note",
                 title: title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : title,
                 url: nil,
                 summary: trimmed
             )
+            for tag in selectedTags {
+                let tagId: String
+                if tag.isNew {
+                    let newTag = try await APIClient.shared.createIdea(type: "tag", title: tag.name, url: nil)
+                    tagId = newTag.id
+                } else {
+                    tagId = tag.id
+                }
+                try await APIClient.shared.createConnection(fromId: created.id, toId: tagId, label: "tagged_with")
+            }
             onSave()
             dismiss()
         } catch {
