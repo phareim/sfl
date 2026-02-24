@@ -60,6 +60,21 @@ final class IdeaDetailViewModel: ObservableObject {
     func deleteIdea(id: String) async throws {
         try await APIClient.shared.deleteIdea(id: id)
     }
+
+    @Published var isFetchingContent = false
+
+    func fetchContent(ideaId: String) {
+        Task {
+            isFetchingContent = true
+            do {
+                try await APIClient.shared.fetchContent(ideaId: ideaId)
+                load(id: ideaId)
+            } catch {
+                self.error = error.localizedDescription
+            }
+            isFetchingContent = false
+        }
+    }
 }
 
 // MARK: - View
@@ -134,6 +149,24 @@ struct IdeaDetailView: View {
                             .foregroundStyle(Color.sflText)
                             .lineSpacing(4)
                             .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .padding(.bottom, 20)
+                } else if idea.type == "page" {
+                    sectionBlock(label: "CONTENT") {
+                        Button { vm.fetchContent(ideaId: idea.id) } label: {
+                            if vm.isFetchingContent {
+                                HStack(spacing: 8) {
+                                    ProgressView().tint(Color.sflAccent)
+                                    Text("Fetching…").font(.sflBody).foregroundStyle(Color.sflMuted)
+                                }
+                            } else {
+                                Label("Fetch article text", systemImage: "doc.text.magnifyingglass")
+                                    .font(.sflBody)
+                                    .foregroundStyle(Color.sflAccent)
+                            }
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(vm.isFetchingContent)
                     }
                     .padding(.bottom, 20)
                 }

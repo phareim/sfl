@@ -144,6 +144,12 @@ final class APIClient {
         try await deleteRequest("/api/ideas/\(id)")
     }
 
+    func fetchContent(ideaId: String) async throws {
+        struct Empty: Encodable {}
+        struct Resp: Decodable { let data: IdeaData }
+        let _: Resp = try await post("/api/ideas/\(ideaId)/fetch-content", body: Empty())
+    }
+
     func listTags() async throws -> [Idea] {
         struct Response: Decodable { let tags: [Idea] }
         let response: Response = try await get("/api/tags")
