@@ -20,6 +20,46 @@ final class IdeaDetailViewModel: ObservableObject {
             isLoading = false
         }
     }
+
+    private func mutate(ideaId: String, _ op: @escaping () async throws -> Void) {
+        Task {
+            do {
+                try await op()
+                load(id: ideaId)
+            } catch {
+                self.error = error.localizedDescription
+            }
+        }
+    }
+
+    func removeTag(ideaId: String, connectionId: String) {
+        mutate(ideaId: ideaId) { try await APIClient.shared.deleteConnection(id: connectionId) }
+    }
+
+    func addTag(ideaId: String, tagId: String) {
+        mutate(ideaId: ideaId) {
+            try await APIClient.shared.createConnection(fromId: ideaId, toId: tagId, label: "tagged_with")
+        }
+    }
+
+    func addNewTag(ideaId: String, name: String) {
+        mutate(ideaId: ideaId) {
+            let tag = try await APIClient.shared.createIdea(type: "tag", title: name, url: nil)
+            try await APIClient.shared.createConnection(fromId: ideaId, toId: tag.id, label: "tagged_with")
+        }
+    }
+
+    func addNote(ideaId: String, body: String) {
+        mutate(ideaId: ideaId) { try await APIClient.shared.addNote(ideaId: ideaId, body: body) }
+    }
+
+    func deleteNote(ideaId: String, noteId: String) {
+        mutate(ideaId: ideaId) { try await APIClient.shared.deleteNote(id: noteId) }
+    }
+
+    func deleteIdea(id: String) async throws {
+        try await APIClient.shared.deleteIdea(id: id)
+    }
 }
 
 // MARK: - View
@@ -27,6 +67,11 @@ final class IdeaDetailViewModel: ObservableObject {
 struct IdeaDetailView: View {
     let id: String
     @StateObject private var vm = IdeaDetailViewModel()
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var showTagPicker = false
+    @State private var newNoteText = ""
+    @State private var showDeleteAlert = false
 
     var body: some View {
         ZStack {
@@ -40,6 +85,35 @@ struct IdeaDetailView: View {
             }
         }
         .task { vm.load(id: id) }
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button { showDeleteAlert = true } label: {
+                    Image(systemName: "trash")
+                }
+                .foregroundStyle(.red)
+                .opacity(vm.idea == nil ? 0 : 1)
+            }
+        }
+        .alert("Delete this idea?", isPresented: $showDeleteAlert) {
+            Button("Delete", role: .destructive) {
+                Task {
+                    try? await vm.deleteIdea(id: id)
+                    dismiss()
+                }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This cannot be undone.")
+        }
+        .sheet(isPresented: $showTagPicker) {
+            if let idea = vm.idea {
+                TagPickerSheet(
+                    existingTagIds: Set(idea.tags.map(\.toId)),
+                    onAddExisting: { tagId in vm.addTag(ideaId: idea.id, tagId: tagId) },
+                    onAddNew: { name in vm.addNewTag(ideaId: idea.id, name: name) }
+                )
+            }
+        }
     }
 
     // MARK: - Main content
@@ -48,13 +122,11 @@ struct IdeaDetailView: View {
         let type = idea.type.ideaType
         return ScrollView {
             VStack(alignment: .leading, spacing: 0) {
-                // Type-colored accent bar + header
                 header(idea, type: type)
                     .padding(.horizontal, 20)
                     .padding(.top, 20)
                     .padding(.bottom, 24)
 
-                // Content section
                 if let content = contentText(idea) {
                     sectionBlock(label: "CONTENT") {
                         Text(content)
@@ -66,7 +138,6 @@ struct IdeaDetailView: View {
                     .padding(.bottom, 20)
                 }
 
-                // URL
                 if let url = idea.url {
                     sectionBlock(label: "SOURCE") {
                         Link(destination: URL(string: url) ?? URL(string: "https://example.com")!) {
@@ -80,50 +151,92 @@ struct IdeaDetailView: View {
                     .padding(.bottom, 20)
                 }
 
-                // Tags
-                if !idea.tags.isEmpty {
-                    sectionBlock(label: "TAGS") {
-                        FlowLayout(spacing: 8) {
-                            ForEach(idea.tags) { conn in
-                                let tag = conn.other(from: idea.id)
-                                NavigationLink(destination: IdeaDetailView(id: tag.id)) {
-                                    TagPill(title: tag.title)
+                // Tags — always shown so you can add
+                sectionBlock(label: "TAGS") {
+                    VStack(alignment: .leading, spacing: 10) {
+                        if !idea.tags.isEmpty {
+                            FlowLayout(spacing: 8) {
+                                ForEach(idea.tags) { conn in
+                                    let tag = conn.other(from: idea.id)
+                                    NavigationLink(destination: IdeaDetailView(id: tag.id)) {
+                                        TagPill(title: tag.title)
+                                    }
+                                    .buttonStyle(.plain)
+                                    .contextMenu {
+                                        Button(role: .destructive) {
+                                            vm.removeTag(ideaId: idea.id, connectionId: conn.id)
+                                        } label: {
+                                            Label("Remove tag", systemImage: "tag.slash")
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        Button { showTagPicker = true } label: {
+                            Label("Add tag", systemImage: "plus")
+                                .font(.sflSmall)
+                                .foregroundStyle(Color.sflMuted)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.bottom, 20)
+
+                // Notes — always shown so you can add
+                sectionBlock(label: "NOTES") {
+                    VStack(alignment: .leading, spacing: 10) {
+                        ForEach(idea.notes ?? []) { note in
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(note.body)
+                                    .font(.sflBody)
+                                    .foregroundStyle(Color.sflText)
+                                Text(note.formattedDate)
+                                    .font(.sflMeta)
+                                    .foregroundStyle(Color.sflMuted)
+                            }
+                            .padding(12)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .background(Color.sflSurface)
+                            .clipShape(RoundedRectangle(cornerRadius: 4))
+                            .overlay(RoundedRectangle(cornerRadius: 4)
+                                .strokeBorder(Color.sflStroke, lineWidth: 1))
+                            .contextMenu {
+                                Button(role: .destructive) {
+                                    vm.deleteNote(ideaId: idea.id, noteId: note.id)
+                                } label: {
+                                    Label("Delete note", systemImage: "trash")
+                                }
+                            }
+                        }
+
+                        // Add note
+                        HStack(alignment: .bottom, spacing: 8) {
+                            TextField("Add a note…", text: $newNoteText, axis: .vertical)
+                                .font(.sflBody)
+                                .foregroundStyle(Color.sflText)
+                                .lineLimit(1...4)
+                            if !newNoteText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                                Button {
+                                    let body = newNoteText.trimmingCharacters(in: .whitespacesAndNewlines)
+                                    newNoteText = ""
+                                    vm.addNote(ideaId: idea.id, body: body)
+                                } label: {
+                                    Image(systemName: "arrow.up.circle.fill")
+                                        .font(.system(size: 24))
+                                        .foregroundStyle(Color.sflAccent)
                                 }
                                 .buttonStyle(.plain)
                             }
                         }
+                        .padding(12)
+                        .background(Color.sflSurface)
+                        .overlay(RoundedRectangle(cornerRadius: 4)
+                            .strokeBorder(Color.sflStroke, lineWidth: 1))
+                        .clipShape(RoundedRectangle(cornerRadius: 4))
                     }
-                    .padding(.bottom, 20)
                 }
+                .padding(.bottom, 20)
 
-                // Notes
-                if let notes = idea.notes, !notes.isEmpty {
-                    sectionBlock(label: "NOTES") {
-                        VStack(alignment: .leading, spacing: 10) {
-                            ForEach(notes) { note in
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text(note.body)
-                                        .font(.sflBody)
-                                        .foregroundStyle(Color.sflText)
-                                    Text(note.formattedDate)
-                                        .font(.sflMeta)
-                                        .foregroundStyle(Color.sflMuted)
-                                }
-                                .padding(12)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .background(Color.sflSurface)
-                                .clipShape(RoundedRectangle(cornerRadius: 4))
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 4)
-                                        .strokeBorder(Color.sflStroke, lineWidth: 1)
-                                )
-                            }
-                        }
-                    }
-                    .padding(.bottom, 20)
-                }
-
-                // Connections
                 if !idea.relatedConnections.isEmpty {
                     sectionBlock(label: "CONNECTIONS") {
                         VStack(spacing: 8) {
@@ -148,28 +261,20 @@ struct IdeaDetailView: View {
 
     private func header(_ idea: IdeaDetail, type: IdeaType) -> some View {
         HStack(alignment: .top, spacing: 0) {
-            // Left type-color bar
             Rectangle()
                 .fill(type.color)
                 .frame(width: 4)
                 .clipShape(RoundedRectangle(cornerRadius: 2))
 
             VStack(alignment: .leading, spacing: 10) {
-                // Type badge + date
                 HStack(spacing: 8) {
                     HStack(spacing: 4) {
-                        Text(type.icon)
-                            .font(.system(size: 12))
-                        Text(type.label)
-                            .font(.sflLabel)
-                            .tracking(1)
+                        Text(type.icon).font(.system(size: 12))
+                        Text(type.label).font(.sflLabel).tracking(1)
                     }
                     .padding(.horizontal, 8)
                     .padding(.vertical, 3)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 4)
-                            .strokeBorder(type.color, lineWidth: 2)
-                    )
+                    .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(type.color, lineWidth: 2))
                     .foregroundStyle(type.color)
 
                     Spacer()
@@ -179,7 +284,6 @@ struct IdeaDetailView: View {
                         .foregroundStyle(Color.sflMuted)
                 }
 
-                // Title
                 Text(idea.displayTitle)
                     .font(.system(size: 26, weight: .heavy))
                     .foregroundStyle(Color.sflText)
@@ -232,6 +336,79 @@ struct IdeaDetailView: View {
         }
         .padding(32)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
+// MARK: - Tag Picker Sheet
+
+private struct TagPickerSheet: View {
+    let existingTagIds: Set<String>
+    let onAddExisting: (String) -> Void
+    let onAddNew: (String) -> Void
+
+    @State private var allTags: [Idea] = []
+    @State private var query = ""
+    @Environment(\.dismiss) private var dismiss
+
+    private var suggestions: [Idea] {
+        let pool = query.isEmpty
+            ? allTags.filter { !existingTagIds.contains($0.id) }
+            : allTags.filter { !existingTagIds.contains($0.id) && ($0.title ?? "").localizedCaseInsensitiveContains(query) }
+        return Array(pool.prefix(20))
+    }
+
+    private var canCreate: Bool {
+        let q = query.trimmingCharacters(in: .whitespaces)
+        guard !q.isEmpty else { return false }
+        return !allTags.contains { ($0.title ?? "").lowercased() == q.lowercased() }
+    }
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                Color.sflBg.ignoresSafeArea()
+                List {
+                    if canCreate {
+                        Button {
+                            onAddNew(query.trimmingCharacters(in: .whitespaces))
+                            dismiss()
+                        } label: {
+                            Label(
+                                "Create \"#\(query.trimmingCharacters(in: .whitespaces))\"",
+                                systemImage: "plus.circle.fill"
+                            )
+                            .foregroundStyle(Color.sflAccent)
+                        }
+                        .listRowBackground(Color.sflSurface)
+                    }
+                    ForEach(suggestions) { tag in
+                        Button {
+                            onAddExisting(tag.id)
+                            dismiss()
+                        } label: {
+                            HStack(spacing: 8) {
+                                Text("🏷️").font(.system(size: 13))
+                                Text(tag.title ?? "").foregroundStyle(Color.sflText)
+                            }
+                        }
+                        .listRowBackground(Color.sflSurface)
+                    }
+                }
+                .listStyle(.plain)
+                .scrollContentBackground(.hidden)
+            }
+            .navigationTitle("Add Tag")
+            .navigationBarTitleDisplayMode(.inline)
+            .searchable(text: $query, prompt: "Search or create…")
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("Cancel") { dismiss() }.foregroundStyle(Color.sflMuted)
+                }
+            }
+        }
+        .task {
+            if let tags = try? await APIClient.shared.listTags() { allTags = tags }
+        }
     }
 }
 

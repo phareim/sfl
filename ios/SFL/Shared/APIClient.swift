@@ -77,6 +77,16 @@ final class APIClient {
         catch { throw APIError.decodingError(error) }
     }
 
+    private func deleteRequest(_ path: String) async throws {
+        guard Settings.shared.isConfigured else { throw APIError.notConfigured }
+        let url = URL(string: "\(baseURL)\(path)")!
+        var req = URLRequest(url: url)
+        req.httpMethod = "DELETE"
+        headers.forEach { req.setValue($1, forHTTPHeaderField: $0) }
+        let (data, response) = try await URLSession.shared.data(for: req)
+        try checkResponse(response, data: data)
+    }
+
     private func checkResponse(_ response: URLResponse, data: Data) throws {
         guard let http = response as? HTTPURLResponse else { return }
         if http.statusCode >= 400 {
@@ -113,6 +123,25 @@ final class APIClient {
         let body = CreateIdeaBody(type: type, title: title, url: url, summary: summary, data: nil)
         let response: CreateResponse = try await post("/api/ideas", body: body)
         return response.idea
+    }
+
+    func deleteConnection(id: String) async throws {
+        try await deleteRequest("/api/connections/\(id)")
+    }
+
+    func addNote(ideaId: String, body: String) async throws -> Note {
+        struct Body: Encodable { let body: String }
+        struct Resp: Decodable { let note: Note }
+        let resp: Resp = try await post("/api/ideas/\(ideaId)/notes", body: Body(body: body))
+        return resp.note
+    }
+
+    func deleteNote(id: String) async throws {
+        try await deleteRequest("/api/notes/\(id)")
+    }
+
+    func deleteIdea(id: String) async throws {
+        try await deleteRequest("/api/ideas/\(id)")
     }
 
     func listTags() async throws -> [Idea] {
