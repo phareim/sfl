@@ -9,7 +9,7 @@ final class IdeasListViewModel: ObservableObject {
     @Published var error: String?
     @Published var hasMore = true
 
-    private var cursor: String?
+    private var cursor: Int?
     private var currentType: String = "all"
     private var currentQuery: String = ""
     private var loadTask: Task<Void, Never>?

@@ -88,9 +88,9 @@ final class APIClient {
 
     // MARK: Public API
 
-    func listIdeas(cursor: String? = nil, type: String? = nil, query: String? = nil) async throws -> IdeasResponse {
+    func listIdeas(cursor: Int? = nil, type: String? = nil, query: String? = nil) async throws -> IdeasResponse {
         var parts: [String] = []
-        if let c = cursor  { parts.append("cursor=\(c.urlEncoded)") }
+        if let c = cursor  { parts.append("cursor=\(c)") }
         if let t = type, t != "all" { parts.append("type=\(t.urlEncoded)") }
         let qs = parts.isEmpty ? "" : "?\(parts.joined(separator: "&"))"
 

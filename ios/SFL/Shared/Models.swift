@@ -153,7 +153,7 @@ struct Note: Codable, Identifiable {
 
 struct IdeasResponse: Codable {
     let ideas: [Idea]
-    let cursor: String?
+    let cursor: Int?
 
     enum CodingKeys: String, CodingKey {
         case ideas
