@@ -65,6 +65,7 @@ struct IdeasListView: View {
     @State private var searchDebounce: Task<Void, Never>?
     @State private var showSearch = false
     @State private var showSettings = false
+    @State private var showQuickNote = false
 
     private let types = ["all"] + IdeaType.allCases.map(\.rawValue)
 
@@ -80,6 +81,13 @@ struct IdeasListView: View {
             .background(Color.sflBg)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button { showQuickNote = true } label: {
+                        Image(systemName: "plus")
+                            .font(.system(size: 22, weight: .semibold))
+                            .foregroundStyle(Color.sflAccent)
+                    }
+                }
                 ToolbarItem(placement: .principal) {
                     Image("icon")
                         .resizable()
@@ -120,6 +128,11 @@ struct IdeasListView: View {
             .refreshable { await vm.refresh() }
             .sheet(isPresented: $showSettings) {
                 SettingsView()
+            }
+            .sheet(isPresented: $showQuickNote) {
+                QuickNoteSheet {
+                    vm.load(type: selectedType, query: searchText, reset: true)
+                }
             }
         }
     }
@@ -246,6 +259,102 @@ struct IdeasListView: View {
         }
         .padding(32)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
+// MARK: - Quick Note Sheet
+
+private struct QuickNoteSheet: View {
+    let onSave: () -> Void
+
+    @State private var title = ""
+    @State private var noteText = ""
+    @State private var isSaving = false
+    @State private var error: String?
+    @FocusState private var noteFocused: Bool
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                Color.sflBg.ignoresSafeArea()
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 20) {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("TITLE")
+                                .font(.sflLabel).tracking(1)
+                                .foregroundStyle(Color.sflMuted)
+                            TextField("Optional title…", text: $title)
+                                .font(.sflBody)
+                                .foregroundStyle(Color.sflText)
+                                .autocorrectionDisabled()
+                                .padding(12)
+                                .background(Color.sflSurface)
+                                .overlay(RoundedRectangle(cornerRadius: 4)
+                                    .strokeBorder(Color.sflStroke, lineWidth: 1))
+                                .clipShape(RoundedRectangle(cornerRadius: 4))
+                        }
+
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("NOTE")
+                                .font(.sflLabel).tracking(1)
+                                .foregroundStyle(Color.sflMuted)
+                            TextField("Write your note…", text: $noteText, axis: .vertical)
+                                .font(.sflBody)
+                                .foregroundStyle(Color.sflText)
+                                .lineLimit(6...)
+                                .focused($noteFocused)
+                                .padding(12)
+                                .background(Color.sflSurface)
+                                .overlay(RoundedRectangle(cornerRadius: 4)
+                                    .strokeBorder(noteFocused ? Color.sflAccent : Color.sflStroke,
+                                                  lineWidth: noteFocused ? 2 : 1))
+                                .clipShape(RoundedRectangle(cornerRadius: 4))
+                        }
+
+                        if let error {
+                            Text(error).font(.sflSmall).foregroundStyle(.red)
+                        }
+                    }
+                    .padding(20)
+                }
+            }
+            .navigationTitle("New Note")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("Cancel") { dismiss() }.foregroundStyle(Color.sflMuted)
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Save") { Task { await save() } }
+                        .font(.sflBody.weight(.semibold))
+                        .foregroundStyle(noteText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                                         ? Color.sflMuted : Color.sflAccent)
+                        .disabled(noteText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isSaving)
+                }
+            }
+        }
+        .onAppear { noteFocused = true }
+    }
+
+    private func save() async {
+        let trimmed = noteText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        isSaving = true
+        error = nil
+        do {
+            try await APIClient.shared.createIdea(
+                type: "note",
+                title: title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : title,
+                url: nil,
+                summary: trimmed
+            )
+            onSave()
+            dismiss()
+        } catch {
+            self.error = error.localizedDescription
+            isSaving = false
+        }
     }
 }
 
