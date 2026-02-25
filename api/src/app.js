@@ -9,6 +9,7 @@ import tagsRouter from './routes/tags.js';
 import graphRouter from './routes/graph.js';
 import { handleMcpRequest } from './routes/mcp.js';
 import oauthRouter, { oauthMetadata } from './routes/oauth.js';
+import githubRouter from './routes/github.js';
 
 const app = new Hono();
 
@@ -48,6 +49,9 @@ app.route('/api/tags', tagsRouter);
 
 // Graph
 app.route('/api/graph', graphRouter);
+
+// GitHub repo proxy
+app.route('/api/github', githubRouter);
 
 // MCP Streamable HTTP endpoint
 app.use('/mcp', bearerAuth());

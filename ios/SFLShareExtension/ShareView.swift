@@ -114,6 +114,12 @@ struct ShareView: View {
 
     @State private var metaPriority = "B"
     @State private var metaStatus = "draft"
+    @State private var metaProject = "https://github.com/phareim/sfl"
+    @State private var repoQuery = ""
+    @FocusState private var repoFieldFocused: Bool
+    @State private var repoResults: [GitHubRepo] = []
+    @State private var isSearchingRepos = false
+    @State private var repoSearchTask: Task<Void, Never>?
 
     @State private var allTags: [Idea] = []
     @State private var selectedTags: [TagItem] = []
@@ -473,7 +479,134 @@ struct ShareView: View {
                     }
                 }
             }
+
+            // Project
+            metaProjectSection
         }
+    }
+
+    private var metaProjectSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("PROJECT")
+                .font(.sflLabel)
+                .tracking(1)
+                .foregroundStyle(Color.sflMuted)
+
+            // Selected repo chip
+            if !metaProject.isEmpty {
+                HStack(spacing: 6) {
+                    Image(systemName: "chevron.left.forwardslash.chevron.right")
+                        .font(.system(size: 11))
+                        .foregroundStyle(Color.sflMuted)
+                    Text(repoDisplayName(metaProject))
+                        .font(.sflBody)
+                        .foregroundStyle(Color.sflText)
+                    Spacer()
+                    Button {
+                        metaProject = ""
+                        repoQuery = ""
+                    } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 9, weight: .bold))
+                            .foregroundStyle(Color.sflMuted)
+                    }
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 8)
+                .background(Color.sflSurface)
+                .overlay(RoundedRectangle(cornerRadius: 4)
+                    .strokeBorder(Color.sflAccent.opacity(0.5), lineWidth: 1))
+                .clipShape(RoundedRectangle(cornerRadius: 4))
+            }
+
+            // Search field (shown when no repo selected)
+            if metaProject.isEmpty {
+                HStack(spacing: 8) {
+                    Image(systemName: isSearchingRepos ? "arrow.trianglehead.2.clockwise" : "magnifyingglass")
+                        .font(.system(size: 13))
+                        .foregroundStyle(Color.sflMuted)
+                    TextField("Search GitHub repos…", text: $repoQuery)
+                        .font(.sflBody)
+                        .autocorrectionDisabled()
+                        .textInputAutocapitalization(.never)
+                        .focused($repoFieldFocused)
+                }
+                .padding(12)
+                .background(Color.sflSurface)
+                .foregroundStyle(Color.sflText)
+                .overlay(RoundedRectangle(cornerRadius: 4)
+                    .strokeBorder(
+                        repoFieldFocused ? Color.sflAccent : Color.sflStroke,
+                        lineWidth: repoFieldFocused ? 2 : 1
+                    ))
+                .clipShape(RoundedRectangle(cornerRadius: 4))
+                .onChange(of: repoQuery) { _, newValue in
+                    repoSearchTask?.cancel()
+                    guard !newValue.trimmingCharacters(in: .whitespaces).isEmpty else {
+                        repoResults = []
+                        return
+                    }
+                    repoSearchTask = Task {
+                        try? await Task.sleep(for: .milliseconds(300))
+                        guard !Task.isCancelled else { return }
+                        isSearchingRepos = true
+                        repoResults = (try? await APIClient.shared.searchGitHubRepos(q: newValue)) ?? []
+                        isSearchingRepos = false
+                    }
+                }
+
+                if repoFieldFocused && !repoResults.isEmpty {
+                    VStack(alignment: .leading, spacing: 0) {
+                        ForEach(Array(repoResults.enumerated()), id: \.element.id) { idx, repo in
+                            if idx > 0 { Divider().overlay(Color.sflStroke) }
+                            Button {
+                                metaProject = repo.htmlUrl
+                                repoQuery = ""
+                                repoResults = []
+                                repoFieldFocused = false
+                            } label: {
+                                HStack(spacing: 8) {
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        HStack(spacing: 6) {
+                                            Text(repo.fullName)
+                                                .font(.sflBody)
+                                                .foregroundStyle(Color.sflText)
+                                            if repo.isPrivate {
+                                                Text("PRIVATE")
+                                                    .font(.system(size: 9, weight: .bold))
+                                                    .foregroundStyle(Color.sflMuted)
+                                                    .padding(.horizontal, 4)
+                                                    .padding(.vertical, 2)
+                                                    .overlay(RoundedRectangle(cornerRadius: 3)
+                                                        .strokeBorder(Color.sflStroke, lineWidth: 1))
+                                            }
+                                        }
+                                        if let desc = repo.description, !desc.isEmpty {
+                                            Text(desc)
+                                                .font(.sflSmall)
+                                                .foregroundStyle(Color.sflMuted)
+                                                .lineLimit(1)
+                                        }
+                                    }
+                                    Spacer()
+                                }
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 9)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    .background(Color.sflSurface)
+                    .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(Color.sflStroke, lineWidth: 1))
+                    .clipShape(RoundedRectangle(cornerRadius: 4))
+                }
+            }
+        }
+    }
+
+    private func repoDisplayName(_ url: String) -> String {
+        guard let range = url.range(of: "github.com/") else { return url }
+        return String(url[range.upperBound...])
     }
 
     private func metaStatusColor(_ status: String) -> Color {
@@ -541,7 +674,7 @@ struct ShareView: View {
             let t = title.isEmpty ? (urlString ?? textContent ?? "") : title
 
             let metaData: [String: String?]? = selectedType == "meta" ? [
-                "project": "https://github.com/phareim/sfl",
+                "project": metaProject.isEmpty ? "https://github.com/phareim/sfl" : metaProject,
                 "priority": metaPriority,
                 "status": metaStatus,
                 "git_commit": nil,

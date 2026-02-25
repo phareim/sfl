@@ -3,6 +3,7 @@
   import { createIdea } from '../api/ideas.js';
   import { createConnection } from '../api/connections.js';
   import { apiFetch } from '../api/client.js';
+  import GitHubRepoPicker from './GitHubRepoPicker.svelte';
 
   export let open = false;
   export let tags = [];
@@ -179,7 +180,7 @@
         </label>
         <label>
           Project
-          <input type="text" bind:value={metaProject} placeholder="https://github.com/..." />
+          <GitHubRepoPicker bind:value={metaProject} on:change={(e) => (metaProject = e.detail)} />
         </label>
       {/if}
 

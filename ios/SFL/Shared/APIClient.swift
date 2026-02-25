@@ -156,10 +156,32 @@ final class APIClient {
         return response.tags
     }
 
+    func searchGitHubRepos(q: String) async throws -> [GitHubRepo] {
+        struct Response: Decodable { let items: [GitHubRepo] }
+        let response: Response = try await get("/api/github/repos?q=\(q.urlEncoded)")
+        return response.items
+    }
+
     func createConnection(fromId: String, toId: String, label: String) async throws {
         struct Body: Encodable { let from_id: String; let to_id: String; let label: String }
         struct Response: Decodable { let connection: Min; struct Min: Decodable { let id: String } }
         let _: Response = try await post("/api/connections", body: Body(from_id: fromId, to_id: toId, label: label))
+    }
+}
+
+struct GitHubRepo: Decodable, Identifiable {
+    let fullName: String
+    let htmlUrl: String
+    let description: String?
+    let isPrivate: Bool
+
+    var id: String { htmlUrl }
+
+    enum CodingKeys: String, CodingKey {
+        case fullName = "full_name"
+        case htmlUrl = "html_url"
+        case description
+        case isPrivate = "private"
     }
 }
 
