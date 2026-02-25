@@ -43,6 +43,28 @@ CREATE INDEX IF NOT EXISTS idx_media_idea       ON media(idea_id);
 CREATE INDEX IF NOT EXISTS idx_ideas_type       ON ideas(type);
 CREATE INDEX IF NOT EXISTS idx_ideas_created    ON ideas(created_at DESC);
 
+CREATE TABLE IF NOT EXISTS oauth_clients (
+  client_id    TEXT PRIMARY KEY,
+  redirect_uris TEXT NOT NULL,
+  created_at   INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS oauth_codes (
+  code                  TEXT PRIMARY KEY,
+  client_id             TEXT NOT NULL,
+  redirect_uri          TEXT NOT NULL,
+  code_challenge        TEXT,
+  code_challenge_method TEXT,
+  created_at            INTEGER NOT NULL,
+  expires_at            INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS oauth_tokens (
+  token      TEXT PRIMARY KEY,
+  client_id  TEXT NOT NULL,
+  created_at INTEGER NOT NULL
+);
+
 CREATE VIRTUAL TABLE IF NOT EXISTS ideas_fts USING fts5(
   title, summary, content=ideas, content_rowid=rowid
 );

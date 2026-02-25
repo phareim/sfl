@@ -8,6 +8,7 @@ import mediaRouter, { mediaStandalone } from './routes/media.js';
 import tagsRouter from './routes/tags.js';
 import graphRouter from './routes/graph.js';
 import { handleMcpRequest } from './routes/mcp.js';
+import oauthRouter, { oauthMetadata } from './routes/oauth.js';
 
 const app = new Hono();
 
@@ -51,6 +52,10 @@ app.route('/api/graph', graphRouter);
 // MCP Streamable HTTP endpoint
 app.use('/mcp', bearerAuth());
 app.post('/mcp', handleMcpRequest);
+
+// OAuth 2.0 (no auth required — public endpoints)
+app.get('/.well-known/oauth-authorization-server', oauthMetadata);
+app.route('/oauth', oauthRouter);
 
 // Health check (no auth)
 app.get('/health', (c) => c.json({ ok: true }));
