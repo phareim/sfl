@@ -166,5 +166,5 @@ struct CreateIdeaBody: Codable {
     let title: String?
     let url: String?
     let summary: String?
-    let data: [String: String]?
+    let data: [String: String?]?
 }

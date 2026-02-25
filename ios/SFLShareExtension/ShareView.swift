@@ -112,6 +112,9 @@ struct ShareView: View {
     @State private var error: String?
     @State private var didSave = false
 
+    @State private var metaPriority = "B"
+    @State private var metaStatus = "draft"
+
     @State private var allTags: [Idea] = []
     @State private var selectedTags: [TagItem] = []
     @State private var tagQuery = ""
@@ -134,9 +137,11 @@ struct ShareView: View {
     }
 
     private var availableTypes: [IdeaType] {
-        context.url != nil
+        var types: [IdeaType] = context.url != nil
             ? [.page, .tweet, .video, .quote, .note]
             : [.note, .quote, .text]
+        types.append(.meta)
+        return types
     }
 
     var body: some View {
@@ -262,6 +267,11 @@ struct ShareView: View {
 
             // Title field
             SFLField(label: "TITLE", placeholder: "Describe this idea…", text: $title)
+
+            // Meta-specific fields
+            if selectedType == "meta" {
+                metaSection
+            }
 
             // Tags
             tagsSection
@@ -410,6 +420,72 @@ struct ShareView: View {
         }
     }
 
+    private var metaSection: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            // Priority
+            VStack(alignment: .leading, spacing: 8) {
+                Text("PRIORITY")
+                    .font(.sflLabel)
+                    .tracking(1)
+                    .foregroundStyle(Color.sflMuted)
+                HStack(spacing: 8) {
+                    ForEach(["A", "B", "C", "D"], id: \.self) { p in
+                        Button { metaPriority = p } label: {
+                            Text(p)
+                                .font(.sflLabel)
+                                .tracking(1)
+                                .padding(.horizontal, 14)
+                                .padding(.vertical, 8)
+                                .background(metaPriority == p ? Color.sflAccent : Color.sflSurface)
+                                .foregroundStyle(metaPriority == p ? Color.sflInk : Color.sflMuted)
+                                .overlay(RoundedRectangle(cornerRadius: 4)
+                                    .strokeBorder(metaPriority == p ? Color.clear : Color.sflStroke, lineWidth: 1))
+                                .clipShape(RoundedRectangle(cornerRadius: 4))
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+
+            // Status
+            VStack(alignment: .leading, spacing: 8) {
+                Text("STATUS")
+                    .font(.sflLabel)
+                    .tracking(1)
+                    .foregroundStyle(Color.sflMuted)
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(["draft", "ready", "in-progress", "done", "rejected"], id: \.self) { s in
+                            Button { metaStatus = s } label: {
+                                Text(s.uppercased())
+                                    .font(.sflLabel)
+                                    .tracking(0.5)
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 6)
+                                    .background(metaStatus == s ? metaStatusColor(s).opacity(0.15) : Color.sflSurface)
+                                    .foregroundStyle(metaStatus == s ? metaStatusColor(s) : Color.sflMuted)
+                                    .overlay(RoundedRectangle(cornerRadius: 4)
+                                        .strokeBorder(metaStatus == s ? metaStatusColor(s) : Color.sflStroke, lineWidth: metaStatus == s ? 2 : 1))
+                                    .clipShape(RoundedRectangle(cornerRadius: 4))
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private func metaStatusColor(_ status: String) -> Color {
+        switch status {
+        case "done":        return Color(hex: "#4ade80")
+        case "in-progress": return Color(hex: "#fbbf24")
+        case "ready":       return Color(hex: "#60a5fa")
+        case "rejected":    return Color(hex: "#f87171")
+        default:            return Color.sflMuted
+        }
+    }
+
     private var actionBar: some View {
         VStack(spacing: 0) {
             Divider().overlay(Color.sflStroke)
@@ -464,11 +540,20 @@ struct ShareView: View {
             let textContent = context.text
             let t = title.isEmpty ? (urlString ?? textContent ?? "") : title
 
+            let metaData: [String: String?]? = selectedType == "meta" ? [
+                "project": "https://github.com/phareim/sfl",
+                "priority": metaPriority,
+                "status": metaStatus,
+                "git_commit": nil,
+                "implementation_details": "",
+            ] : nil
+
             let created = try await APIClient.shared.createIdea(
                 type: selectedType,
                 title: t.isEmpty ? nil : t,
                 url: urlString,
-                summary: selectedType == "note" ? textContent : nil
+                summary: selectedType == "note" ? textContent : nil,
+                data: metaData
             )
 
             for tag in selectedTags {

@@ -119,8 +119,8 @@ final class APIClient {
     }
 
     @discardableResult
-    func createIdea(type: String, title: String?, url: String?, summary: String? = nil) async throws -> Idea {
-        let body = CreateIdeaBody(type: type, title: title, url: url, summary: summary, data: nil)
+    func createIdea(type: String, title: String?, url: String?, summary: String? = nil, data: [String: String?]? = nil) async throws -> Idea {
+        let body = CreateIdeaBody(type: type, title: title, url: url, summary: summary, data: data)
         let response: CreateResponse = try await post("/api/ideas", body: body)
         return response.idea
     }

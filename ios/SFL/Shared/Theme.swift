@@ -62,7 +62,7 @@ extension Color {
 // MARK: - Idea Type Colors & Icons
 
 enum IdeaType: String, CaseIterable {
-    case page, tweet, book, quote, note, image, text, video, tag
+    case page, tweet, book, quote, note, image, text, video, tag, meta
 
     var color: Color {
         switch self {
@@ -75,6 +75,7 @@ enum IdeaType: String, CaseIterable {
         case .text:  return Color(hex: "#2dd4bf")
         case .video: return Color(hex: "#f87171")
         case .tag:   return Color(hex: "#94a3b8")
+        case .meta:  return Color(hex: "#818cf8")
         }
     }
 
@@ -89,6 +90,7 @@ enum IdeaType: String, CaseIterable {
         case .text:  return "📄"
         case .video: return "▶️"
         case .tag:   return "🏷️"
+        case .meta:  return "🎯"
         }
     }
 
