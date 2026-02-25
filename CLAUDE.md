@@ -11,13 +11,17 @@ Deploys entirely to Cloudflare (Worker + Pages + D1 + R2). Single-user. Push to 
 | API | Cloudflare Worker + Hono.js, D1 (metadata), R2 (JSON blobs + media) |
 | Web | SvelteKit (static) + Cloudflare Pages |
 | Extension | Chrome MV3 — context menus, popup, social post detection |
+| iOS | SwiftUI + Share Extension |
+| MCP | Streamable HTTP at `/mcp`; OAuth 2.0 server at `/oauth` for Claude.ai |
 
-**The API and data model are the center of the service.** The web app and Chrome extension exist to feed data in and out of the API — they are secondary.
+**The API and data model are the center of the service.** The web app, extension, iOS app, and MCP server exist to feed data in and out of the API — they are secondary.
 
 Key data model facts:
 - D1 holds indexed metadata only; type-specific content lives as JSON in R2 at `ideas/{id}/data.json`
 - Tags are ideas with `type='tag'`; tagging = connection with `label='tagged_with'`
-- IDs are nanoid 21 chars; auth is a single Bearer token (`API_KEY` Cloudflare secret)
+- IDs are nanoid 21 chars
+- Auth: Bearer token (`API_KEY` Cloudflare secret) or OAuth-issued token (stored in `oauth_tokens` D1 table)
+- MCP tools: `list_tags`, `capture_idea`, `search_ideas`, `list_ideas`, `get_idea`, `create_idea`, `tag_idea`, `create_connection`, `add_note`
 
 ## Conventions
 
