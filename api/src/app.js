@@ -7,6 +7,7 @@ import notesRouter, { notesStandalone } from './routes/notes.js';
 import mediaRouter, { mediaStandalone } from './routes/media.js';
 import tagsRouter from './routes/tags.js';
 import graphRouter from './routes/graph.js';
+import { handleMcpRequest } from './routes/mcp.js';
 
 const app = new Hono();
 
@@ -46,6 +47,10 @@ app.route('/api/tags', tagsRouter);
 
 // Graph
 app.route('/api/graph', graphRouter);
+
+// MCP Streamable HTTP endpoint
+app.use('/mcp', bearerAuth());
+app.post('/mcp', handleMcpRequest);
 
 // Health check (no auth)
 app.get('/health', (c) => c.json({ ok: true }));
