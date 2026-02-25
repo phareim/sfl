@@ -19,13 +19,16 @@
   let savingStatus = '';
   let error = null;
   let imageFile = null;   // File object when user picks a local file
+  let metaPriority = 'B';
+  let metaStatus = 'draft';
+  let metaProject = 'https://github.com/phareim/sfl';
 
   function onFileChange(e) {
     imageFile = e.target.files[0] ?? null;
     if (imageFile && !title) title = imageFile.name.replace(/\.[^.]+$/, '');
   }
 
-  const TYPES = ['note', 'page', 'quote', 'book', 'tweet', 'image', 'text'];
+  const TYPES = ['note', 'page', 'quote', 'book', 'tweet', 'image', 'text', 'meta'];
 
   function buildData() {
     switch (type) {
@@ -35,6 +38,13 @@
       case 'tweet': return { url, text: content };
       case 'book': return { title };
       case 'image': return { source_url: url, caption: content };
+      case 'meta': return {
+        project: metaProject || 'https://github.com/phareim/sfl',
+        priority: metaPriority || 'B',
+        status: metaStatus || 'draft',
+        git_commit: null,
+        implementation_details: '',
+      };
       default: return { content };
     }
   }
@@ -93,6 +103,9 @@
     content = '';
     selectedTags = [];
     imageFile = null;
+    metaPriority = 'B';
+    metaStatus = 'draft';
+    metaProject = 'https://github.com/phareim/sfl';
     open = false;
   }
 
@@ -144,7 +157,33 @@
         {/if}
       {/if}
 
-      {#if type !== 'book' && type !== 'image'}
+      {#if type === 'meta'}
+        <label>
+          Priority
+          <select bind:value={metaPriority}>
+            <option value="A">A — Critical</option>
+            <option value="B">B — High</option>
+            <option value="C">C — Medium</option>
+            <option value="D">D — Low</option>
+          </select>
+        </label>
+        <label>
+          Status
+          <select bind:value={metaStatus}>
+            <option value="draft">draft</option>
+            <option value="ready">ready</option>
+            <option value="in-progress">in-progress</option>
+            <option value="done">done</option>
+            <option value="rejected">rejected</option>
+          </select>
+        </label>
+        <label>
+          Project
+          <input type="text" bind:value={metaProject} placeholder="https://github.com/..." />
+        </label>
+      {/if}
+
+      {#if type !== 'book' && type !== 'image' && type !== 'meta'}
         <label>
           Content
           <textarea bind:value={content} rows="5" placeholder="Content..."></textarea>

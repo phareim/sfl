@@ -16,6 +16,7 @@
     page: '#60a5fa', tweet: '#34d399', book:  '#fbbf24',
     quote:'#a78bfa', note:  '#fb923c', image: '#fb7185',
     text: '#2dd4bf', video: '#f87171', tag:   '#94a3b8',
+    meta: '#818cf8',
   };
 
   function formatDate(ms) {
@@ -100,6 +101,11 @@
         )
         .filter((i) => i.type !== 'tag')
     : [];
+
+  async function saveMetaField(field, value) {
+    const updated = await updateIdea(idea.id, { data: { ...data, [field]: value } });
+    data = updated.data;
+  }
 
   $: videoEmbed = (() => {
     if (idea.type !== 'video') return null;
@@ -208,6 +214,62 @@
         <TagEditor ideaId={idea.id} {currentTags} />
       </div>
     </header>
+
+    {#if idea.type === 'meta'}
+      <section class="meta-fields">
+        <div class="meta-badges">
+          <select
+            class="meta-status-badge"
+            style="--status-color: {
+              data.status === 'done' ? '#4ade80'
+              : data.status === 'in-progress' ? '#fbbf24'
+              : data.status === 'ready' ? '#60a5fa'
+              : data.status === 'rejected' ? '#f87171'
+              : '#94a3b8'
+            };"
+            value={data.status ?? 'draft'}
+            on:change={(e) => saveMetaField('status', e.target.value)}
+          >
+            <option value="draft">draft</option>
+            <option value="ready">ready</option>
+            <option value="in-progress">in-progress</option>
+            <option value="done">done</option>
+            <option value="rejected">rejected</option>
+          </select>
+          <select
+            class="meta-priority-badge"
+            style="--priority-color: {
+              data.priority === 'A' ? '#f87171'
+              : data.priority === 'B' ? '#fb923c'
+              : data.priority === 'C' ? '#fbbf24'
+              : '#94a3b8'
+            };"
+            value={data.priority ?? 'B'}
+            on:change={(e) => saveMetaField('priority', e.target.value)}
+          >
+            <option value="A">P-A</option>
+            <option value="B">P-B</option>
+            <option value="C">P-C</option>
+            <option value="D">P-D</option>
+          </select>
+        </div>
+        {#if data.project}
+          <a class="meta-project" href={data.project} target="_blank" rel="noopener">{data.project}</a>
+        {/if}
+        {#if data.git_commit}
+          <div class="meta-commit">
+            <span class="meta-label">Commit</span>
+            <code class="meta-commit-hash">{data.git_commit}</code>
+          </div>
+        {/if}
+        {#if data.implementation_details}
+          <div class="meta-impl">
+            <span class="meta-label">Implementation details</span>
+            <pre class="meta-impl-pre">{data.implementation_details}</pre>
+          </div>
+        {/if}
+      </section>
+    {/if}
 
     {#if videoEmbed?.platform === 'youtube'}
       <section class="video-embed landscape">
@@ -613,5 +675,65 @@
     top: 0; left: 0;
     width: 100%; height: 100%;
     border: 0;
+  }
+
+  /* ── META ── */
+  .meta-fields { margin: 24px 0; display: flex; flex-direction: column; gap: 14px; }
+  .meta-badges { display: flex; gap: 8px; flex-wrap: wrap; }
+  .meta-status-badge, .meta-priority-badge {
+    padding: 3px 12px;
+    border-radius: var(--r);
+    border: 2px solid var(--status-color, var(--stroke));
+    background: transparent;
+    color: var(--status-color, var(--text));
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    cursor: pointer;
+    outline: none;
+  }
+  .meta-priority-badge {
+    border-color: var(--priority-color, var(--stroke));
+    color: var(--priority-color, var(--text));
+  }
+  .meta-project {
+    font-size: 0.82rem;
+    color: var(--muted);
+    word-break: break-all;
+    text-decoration: none;
+  }
+  .meta-project:hover { color: var(--text); }
+  .meta-label {
+    display: block;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    font-weight: 800;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+  .meta-commit { }
+  .meta-commit-hash {
+    font-family: monospace;
+    font-size: 0.88rem;
+    background: var(--surface);
+    border: 1px solid var(--stroke);
+    border-radius: var(--r);
+    padding: 3px 8px;
+    cursor: pointer;
+    user-select: all;
+  }
+  .meta-impl-pre {
+    background: var(--surface);
+    border: 1px solid var(--stroke);
+    border-radius: var(--r);
+    padding: 14px;
+    font-size: 0.85rem;
+    line-height: 1.6;
+    overflow-x: auto;
+    white-space: pre-wrap;
+    font-family: inherit;
+    margin: 0;
   }
 </style>

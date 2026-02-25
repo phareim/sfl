@@ -1,4 +1,4 @@
-import { searchIdeas, listIdeas, getIdea, insertIdea, getIdeaConnections, getIdeaNotes } from '../db/ideas.js';
+import { searchIdeas, listIdeas, getIdea, insertIdea, updateIdea, getIdeaConnections, getIdeaNotes } from '../db/ideas.js';
 import { insertConnection } from '../db/connections.js';
 import { insertNote } from '../db/notes.js';
 import { putJson, getJson, dataKey } from '../lib/r2.js';
@@ -48,7 +48,7 @@ const TOOLS = [
     inputSchema: {
       type: 'object',
       properties: {
-        type: { type: 'string', description: 'Filter by type: note, page, quote, book, tweet, image, tag' },
+        type: { type: 'string', description: 'Filter by type: note, page, quote, book, tweet, image, tag, meta' },
         tag: { type: 'string', description: 'Filter by tag ID or tag title' },
         limit: { type: 'number', description: 'Max results (default 20)' },
         cursor: { type: 'string', description: 'Pagination cursor from previous response' },
@@ -68,7 +68,7 @@ const TOOLS = [
   },
   {
     name: 'create_idea',
-    description: 'Create a new idea of any type (note, page, quote, book, tweet, image, tag).',
+    description: 'Create a new idea of any type (note, page, quote, book, tweet, image, tag, meta).',
     inputSchema: {
       type: 'object',
       properties: {
@@ -116,6 +116,20 @@ const TOOLS = [
         body: { type: 'string', description: 'Note content' },
       },
       required: ['idea_id', 'body'],
+    },
+  },
+  {
+    name: 'update_idea',
+    description: 'Update an existing idea. Pass only the fields you want to change. Use this to mark a meta idea as done after implementing a feature.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id: { type: 'string', description: 'Idea ID' },
+        title: { type: 'string' },
+        summary: { type: 'string' },
+        data: { type: 'object', description: 'Replaces the full data blob' },
+      },
+      required: ['id'],
     },
   },
 ];
@@ -249,6 +263,24 @@ async function executeTool(name, args, env) {
       await insertNote(env.DB, { id, idea_id: args.idea_id, body: args.body, created_at: now, updated_at: now });
       const note = await env.DB.prepare('SELECT * FROM notes WHERE id = ?').bind(id).first();
       return { note };
+    }
+
+    case 'update_idea': {
+      const existing = await getIdea(env.DB, args.id);
+      if (!existing) return { error: `Idea ${args.id} not found` };
+      const now = Date.now();
+      if (args.data !== undefined) {
+        await putJson(env.R2, existing.r2_key, args.data);
+      }
+      await updateIdea(env.DB, args.id, {
+        title: args.title !== undefined ? args.title : existing.title,
+        url: existing.url,
+        summary: args.summary !== undefined ? args.summary : existing.summary,
+        updated_at: now,
+      });
+      const idea = await getIdea(env.DB, args.id);
+      const data = await getJson(env.R2, idea.r2_key);
+      return { idea, data: data ?? {} };
     }
 
     default:

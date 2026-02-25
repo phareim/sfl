@@ -14,6 +14,7 @@
     tag:    '🏷️',
     text:   '📄',
     video:  '▶️',
+    meta:   '🎯',
   };
 
   const CARD_COLORS = {
@@ -26,6 +27,7 @@
     text:   '#2dd4bf',
     video:  '#f87171',
     tag:    '#94a3b8',
+    meta:   '#818cf8',
   };
 
   function youtubeId(url) {
