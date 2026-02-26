@@ -13,8 +13,9 @@ Deploys entirely to Cloudflare (Worker + Pages + D1 + R2). Single-user. Push to 
 | Extension | Chrome MV3 — context menus, popup, social post detection |
 | iOS | SwiftUI + Share Extension |
 | MCP | Streamable HTTP at `/mcp`; OAuth 2.0 server at `/oauth` for Claude.ai |
+| AI | Cloudflare Workers AI (`@cf/meta/llama-3.1-8b-instruct`) — enrichment |
 
-**The API and data model are the center of the service.** The web app, extension, iOS app, and MCP server exist to feed data in and out of the API — they are secondary.
+**The API and data model are the center of the service.** The web app, extension, iOS app, MCP server, and AI enrichment exist to feed data in and out of the API — they are secondary.
 
 Key data model facts:
 - D1 holds indexed metadata only; type-specific content lives as JSON in R2 at `ideas/{id}/data.json`
@@ -23,6 +24,7 @@ Key data model facts:
 - Auth: Bearer token (`API_KEY` Cloudflare secret) or OAuth-issued token (stored in `oauth_tokens` D1 table)
 - MCP tools: `list_tags`, `capture_idea`, `search_ideas`, `list_ideas`, `get_idea`, `create_idea`, `tag_idea`, `create_connection`, `add_note`, `update_idea`
 - When listing or creating `meta` ideas, always pass the current repo's GitHub URL: `list_ideas(type="meta", project="https://github.com/owner/repo")` and `create_idea(type="meta", data={ project, priority, status, ... })`. Detect the project URL from `git remote get-url origin`.
+- AI enrichment runs via `api/src/enrichment.js` after every POST /ideas (fire-and-forget via `ctx.waitUntil`). It auto-applies tags, finds related ideas (`related_to` connections), and formats `data.text` as markdown when present (100–12 000 chars, non-page types). Sets `data.markdown = true` when done. Manual trigger: `POST /api/ideas/:id/enrich?mode=tags|connections|markdown|all`.
 
 ## Conventions
 

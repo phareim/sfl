@@ -22,6 +22,7 @@ Deploys entirely to **Cloudflare** (Worker + Pages + D1 + R2). Single-user, Java
 - **Media gallery** — attach files to any idea; served directly from R2
 - **Chrome extension** — right-click context menus, popup quick-capture, options page
 - **Claude / MCP** — remote MCP server with OAuth so Claude (Code or web) can capture and query ideas directly
+- **AI enrichment** — on every new idea, Workers AI (`llama-3.1-8b-instruct`) auto-applies relevant tags, finds related ideas (surfaced as `related_to` connections), and reformats `data.text` into structured Markdown. Manual re-run available via buttons in the web and iOS detail views
 
 ---
 
@@ -36,6 +37,7 @@ Deploys entirely to **Cloudflare** (Worker + Pages + D1 + R2). Single-user, Java
 | Extension | Chrome MV3 | Context menus, popup, social detection |
 | iOS | SwiftUI + Share Extension | Native capture from any app |
 | MCP | Streamable HTTP + OAuth 2.0 | Claude Code and Claude.ai connector |
+| AI | Workers AI (`llama-3.1-8b-instruct`) | Auto-tagging, related ideas, markdown formatting |
 | Graph | Sigma.js + Graphology | WebGL rendering, ForceAtlas2 layout |
 | CI/CD | GitHub Actions | Deploy on push to master |
 
@@ -47,16 +49,20 @@ Deploys entirely to **Cloudflare** (Worker + Pages + D1 + R2). Single-user, Java
 
 | Type | R2 data blob fields |
 |---|---|
-| `page` | `url`, `title`, `selected_text` |
-| `tweet` | `url`, `text`, `author`, `platform`, `post_id` |
+| `page` | `text`, `selected_text` |
+| `tweet` | `text`, `author`, `platform`, `post_id` |
 | `quote` | `text`, `attribution`, `source_url` |
 | `image` | `source_url`, `caption` |
 | `book` | `title`, `author`, `isbn`, `cover_url` |
 | `note` | `text` |
 | `text` | `text` |
+| `video` | `video_id`, `platform` |
+| `meta` | `project`, `priority`, `status`, `git_commit`, `implementation_details` |
 | `tag` | _(no data; the title is the tag name)_ |
 
 Tags are ideas with `type = 'tag'`. Tagging an idea = creating a connection with `label = 'tagged_with'`.
+
+Any idea with a `text` field may also have **`markdown: true`** in its blob, set automatically when AI enrichment has reformatted the text as structured Markdown. The web and iOS apps render it accordingly.
 
 ---
 
@@ -129,6 +135,7 @@ The Worker also runs an OAuth 2.0 server so Claude.ai can connect without exposi
 | `tag_idea` | Tag an idea |
 | `create_connection` | Connect two ideas |
 | `add_note` | Add a note to an existing idea |
+| `update_idea` | Update title, summary, url, or data blob of an existing idea |
 
 ---
 
@@ -226,6 +233,9 @@ DELETE /api/ideas/:id                 delete (cascades connections/notes/media +
 
 POST   /api/connections               create edge { from_id, to_id, label }
 DELETE /api/connections/:id           delete edge
+
+POST   /api/ideas/:id/enrich          run AI enrichment; ?mode=tags|connections|markdown|all (default all)
+POST   /api/ideas/:id/fetch-content   extract article text from URL (page type only)
 
 POST   /api/ideas/:id/notes           add note { body }
 PUT    /api/notes/:id                 update note { body }
