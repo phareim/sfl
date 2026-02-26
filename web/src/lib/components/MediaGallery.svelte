@@ -1,5 +1,5 @@
 <script>
-  import { createEventDispatcher } from 'svelte';
+  import { onDestroy, createEventDispatcher } from 'svelte';
   import { uploadMedia, deleteMedia } from '../api/media.js';
 
   export let ideaId;
@@ -8,16 +8,34 @@
   const dispatch = createEventDispatcher();
 
   let uploading = false;
+  let blobUrls = {};
 
-  function mediaUrl(item) {
-    const apiUrl = (localStorage.getItem('sfl_api_url') ?? '').replace(/\/$/, '');
-    const apiKey = localStorage.getItem('sfl_api_key') ?? '';
-    return `${apiUrl}/api/media/${item.id}/url`;
+  function getConfig() {
+    return {
+      apiUrl: (localStorage.getItem('sfl_api_url') ?? '').replace(/\/$/, ''),
+      apiKey: localStorage.getItem('sfl_api_key') ?? '',
+    };
   }
 
-  function authHeaders() {
-    return { Authorization: `Bearer ${localStorage.getItem('sfl_api_key') ?? ''}` };
+  async function loadBlobUrl(item) {
+    if (blobUrls[item.id]) return;
+    const { apiUrl, apiKey } = getConfig();
+    const res = await fetch(`${apiUrl}/api/media/${item.id}/url`, {
+      headers: { Authorization: `Bearer ${apiKey}` },
+    });
+    if (res.ok) {
+      const blob = await res.blob();
+      blobUrls = { ...blobUrls, [item.id]: URL.createObjectURL(blob) };
+    }
   }
+
+  $: for (const item of items) {
+    if (isImage(item.mime_type)) loadBlobUrl(item);
+  }
+
+  onDestroy(() => {
+    for (const url of Object.values(blobUrls)) URL.revokeObjectURL(url);
+  });
 
   async function onFileChange(e) {
     const file = e.target.files[0];
@@ -50,7 +68,7 @@
     {#each items as item (item.id)}
       <div class="item">
         {#if isImage(item.mime_type)}
-          <img src={mediaUrl(item)} alt={item.filename} loading="lazy" />
+          <img src={blobUrls[item.id] ?? ''} alt={item.filename} loading="lazy" />
         {:else}
           <div class="file-icon">📄</div>
         {/if}
