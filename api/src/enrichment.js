@@ -1,9 +1,9 @@
 import { getIdea, searchIdeas, listIdeas } from './db/ideas.js';
 import { generateId } from './lib/nanoid.js';
-import { getJson } from './lib/r2.js';
+import { getJson, putJson } from './lib/r2.js';
 
 /**
- * Auto-tag and auto-connect a newly created idea using Workers AI.
+ * Auto-tag, auto-connect, and optionally format text for a newly created idea.
  * Called via ctx.waitUntil() — errors are swallowed so they never affect the response.
  */
 export async function enrichIdea(env, ideaId) {
@@ -18,7 +18,7 @@ export async function enrichIdea(env, ideaId) {
  * Run enrichment for an idea with a specific mode.
  * Throws on error — callers are responsible for handling.
  *
- * @param {'tags'|'connections'|'all'} mode
+ * @param {'tags'|'connections'|'markdown'|'all'} mode
  */
 export async function runEnrichment(env, ideaId, mode = 'all') {
   const idea = await getIdea(env.DB, ideaId);
@@ -31,6 +31,7 @@ export async function runEnrichment(env, ideaId, mode = 'all') {
   const tasks = [];
   if (mode === 'tags' || mode === 'all') tasks.push(applyTags(env, idea, description));
   if (mode === 'connections' || mode === 'all') tasks.push(applyConnections(env, idea, description));
+  if (mode === 'markdown' || mode === 'all') tasks.push(formatAsMarkdown(env, idea, data));
   await Promise.all(tasks);
 }
 
@@ -110,6 +111,32 @@ async function applyConnections(env, idea, description) {
         .bind(generateId(), idea.id, relatedId, now)
         .run();
     }
+  } catch {
+    // Best-effort
+  }
+}
+
+async function formatAsMarkdown(env, idea, data) {
+  try {
+    const text = data.text;
+    if (!text || typeof text !== 'string') return;
+    // Skip very short texts (nothing to structure) and very long ones (token limits)
+    if (text.length < 100 || text.length > 12000) return;
+
+    const messages = [
+      {
+        role: 'system',
+        content:
+          'You are a text formatter. Convert the following raw text into well-structured Markdown. Use headers, bullet points, bold, italic, and other Markdown elements where they improve readability and structure. Preserve all information. Return only the formatted Markdown, nothing else.',
+      },
+      { role: 'user', content: text },
+    ];
+
+    const response = await env.AI.run('@cf/meta/llama-3.1-8b-instruct', { messages });
+    const formatted = response?.response?.trim();
+    if (!formatted) return;
+
+    await putJson(env.R2, idea.r2_key, { ...data, text: formatted, markdown: true });
   } catch {
     // Best-effort
   }

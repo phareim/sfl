@@ -3,6 +3,7 @@
   import MediaGallery from './MediaGallery.svelte';
   import TagEditor from './TagEditor.svelte';
   import IdeaCard from './IdeaCard.svelte';
+  import { marked } from 'marked';
   import { updateNote } from '../api/notes.js';
   import { updateIdea, fetchContent, enrichIdea } from '../api/ideas.js';
 
@@ -40,6 +41,8 @@
   let fetching = false;
   let enrichingTags = false;
   let enrichingConnections = false;
+  let enrichingMarkdown = false;
+  $: enriching = enrichingTags || enrichingConnections || enrichingMarkdown;
   let pastingText = false;
   let pasteBuffer = '';
 
@@ -109,6 +112,7 @@
     try {
       const result = await enrichIdea(idea.id, 'tags');
       connections = result.connections;
+      data = result.data;
     } finally {
       enrichingTags = false;
     }
@@ -119,8 +123,20 @@
     try {
       const result = await enrichIdea(idea.id, 'connections');
       connections = result.connections;
+      data = result.data;
     } finally {
       enrichingConnections = false;
+    }
+  }
+
+  async function doEnrichMarkdown() {
+    enrichingMarkdown = true;
+    try {
+      const result = await enrichIdea(idea.id, 'markdown');
+      connections = result.connections;
+      data = result.data;
+    } finally {
+      enrichingMarkdown = false;
     }
   }
 
@@ -236,12 +252,17 @@
         <TagEditor ideaId={idea.id} {currentTags} />
       </div>
       <div class="enrich-row">
-        <button class="enrich-btn" on:click={doEnrichTags} disabled={enrichingTags || enrichingConnections}>
+        <button class="enrich-btn" on:click={doEnrichTags} disabled={enriching}>
           {enrichingTags ? 'Tagging…' : 'Auto-tag'}
         </button>
-        <button class="enrich-btn" on:click={doEnrichConnections} disabled={enrichingTags || enrichingConnections}>
+        <button class="enrich-btn" on:click={doEnrichConnections} disabled={enriching}>
           {enrichingConnections ? 'Connecting…' : 'Find connections'}
         </button>
+        {#if data.text && idea.type !== 'page'}
+          <button class="enrich-btn" on:click={doEnrichMarkdown} disabled={enriching}>
+            {enrichingMarkdown ? 'Formatting…' : data.markdown ? 'Re-format markdown' : 'Format as markdown'}
+          </button>
+        {/if}
       </div>
     </header>
 
@@ -335,7 +356,11 @@
       </section>
     {:else if data.text}
       <section class="content">
-        <blockquote style="border-left-color: {accent};">{data.text}</blockquote>
+        {#if data.markdown}
+          <div class="markdown-body">{@html marked.parse(data.text)}</div>
+        {:else}
+          <blockquote style="border-left-color: {accent};">{data.text}</blockquote>
+        {/if}
         {#if data.attribution}<cite>— {data.attribution}</cite>{/if}
       </section>
     {:else if data.selected_text}
@@ -553,6 +578,65 @@
     border-radius: 0 var(--r) var(--r) 0;
   }
   cite { display: block; margin-top: 10px; font-size: 0.85rem; color: var(--muted); font-style: normal; }
+
+  /* ── MARKDOWN BODY ── */
+  .markdown-body {
+    padding: 20px 24px;
+    background: var(--surface);
+    border: 2px solid var(--stroke);
+    border-radius: var(--r);
+    font-size: 0.97rem;
+    line-height: 1.7;
+  }
+  .markdown-body :global(h1),
+  .markdown-body :global(h2),
+  .markdown-body :global(h3) {
+    margin: 1.2em 0 0.4em;
+    font-weight: 800;
+    line-height: 1.25;
+    letter-spacing: -0.02em;
+  }
+  .markdown-body :global(h1) { font-size: 1.5rem; }
+  .markdown-body :global(h2) { font-size: 1.2rem; }
+  .markdown-body :global(h3) { font-size: 1rem; }
+  .markdown-body :global(p) { margin: 0 0 1em; }
+  .markdown-body :global(p:last-child) { margin-bottom: 0; }
+  .markdown-body :global(ul),
+  .markdown-body :global(ol) { margin: 0 0 1em 1.4em; padding: 0; }
+  .markdown-body :global(li) { margin-bottom: 0.3em; }
+  .markdown-body :global(strong) { font-weight: 700; }
+  .markdown-body :global(em) { font-style: italic; }
+  .markdown-body :global(code) {
+    font-family: monospace;
+    font-size: 0.88em;
+    background: var(--bg);
+    border: 1px solid var(--stroke);
+    border-radius: 3px;
+    padding: 1px 5px;
+  }
+  .markdown-body :global(pre) {
+    background: var(--bg);
+    border: 1px solid var(--stroke);
+    border-radius: var(--r);
+    padding: 12px 16px;
+    overflow-x: auto;
+    margin: 0 0 1em;
+  }
+  .markdown-body :global(pre code) {
+    background: none;
+    border: none;
+    padding: 0;
+    font-size: 0.85rem;
+  }
+  .markdown-body :global(blockquote) {
+    border-left: 3px solid var(--stroke);
+    margin: 0 0 1em;
+    padding: 8px 16px;
+    color: var(--muted);
+    font-style: italic;
+  }
+  .markdown-body :global(a) { color: var(--accent); text-decoration: underline; }
+  .markdown-body :global(hr) { border: none; border-top: 1px solid var(--stroke); margin: 1.2em 0; }
 
   /* ── SECTIONS ── */
   .section { margin-top: 32px; }

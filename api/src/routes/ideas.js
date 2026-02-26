@@ -133,14 +133,17 @@ ideas.post('/:id/enrich', async (c) => {
   if (!idea) return notFound('Idea not found');
 
   const mode = c.req.query('mode') ?? 'all';
-  if (!['tags', 'connections', 'all'].includes(mode)) {
-    return badRequest('mode must be tags, connections, or all');
+  if (!['tags', 'connections', 'markdown', 'all'].includes(mode)) {
+    return badRequest('mode must be tags, connections, markdown, or all');
   }
 
   await runEnrichment(c.env, id, mode);
 
-  const connections = await getIdeaConnections(c.env.DB, id);
-  return c.json({ connections });
+  const [connections, data] = await Promise.all([
+    getIdeaConnections(c.env.DB, id),
+    getJson(c.env.R2, idea.r2_key),
+  ]);
+  return c.json({ connections, data: data ?? {} });
 });
 
 // POST /api/ideas/:id/fetch-content
