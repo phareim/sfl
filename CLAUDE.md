@@ -21,7 +21,8 @@ Key data model facts:
 - Tags are ideas with `type='tag'`; tagging = connection with `label='tagged_with'`
 - IDs are nanoid 21 chars
 - Auth: Bearer token (`API_KEY` Cloudflare secret) or OAuth-issued token (stored in `oauth_tokens` D1 table)
-- MCP tools: `list_tags`, `capture_idea`, `search_ideas`, `list_ideas`, `get_idea`, `create_idea`, `tag_idea`, `create_connection`, `add_note`
+- MCP tools: `list_tags`, `capture_idea`, `search_ideas`, `list_ideas`, `get_idea`, `create_idea`, `tag_idea`, `create_connection`, `add_note`, `update_idea`
+- When listing or creating `meta` ideas, always pass the current repo's GitHub URL: `list_ideas(type="meta", project="https://github.com/owner/repo")` and `create_idea(type="meta", data={ project, priority, status, ... })`. Detect the project URL from `git remote get-url origin`.
 
 ## Conventions
 
