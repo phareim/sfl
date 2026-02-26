@@ -12,5 +12,8 @@ database_id = "d1968d0f-a984-4fd2-bf4e-c2e0d70f242b"
 binding = "R2"
 bucket_name = "sfl-data"
 
+[ai]
+binding = "AI"
+
 [vars]
 # API_KEY is set via: wrangler secret put API_KEY

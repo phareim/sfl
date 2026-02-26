@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { generateId } from '../lib/nanoid.js';
 import { putJson, getJson, deleteObject, dataKey } from '../lib/r2.js';
 import { badRequest, notFound, serverError } from '../lib/errors.js';
+import { enrichIdea } from '../enrichment.js';
 import {
   insertIdea,
   getIdea,
@@ -69,6 +70,9 @@ ideas.post('/', async (c) => {
   });
 
   const idea = await getIdea(c.env.DB, id);
+
+  c.executionCtx.waitUntil(enrichIdea(c.env, id));
+
   return c.json({ idea, data: data ?? {} }, 201);
 });
 
