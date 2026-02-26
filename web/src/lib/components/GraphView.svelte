@@ -29,7 +29,7 @@
     // Dynamic import to avoid SSR issues
     const [{ default: Sigma }, { circular }] = await Promise.all([
       import('sigma'),
-      import('graphology-layout/circular'),
+      import('graphology-layout'),
     ]);
 
     const graph = new Graph({ multi: false, type: 'directed' });
