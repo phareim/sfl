@@ -150,6 +150,12 @@ final class APIClient {
         let _: Resp = try await post("/api/ideas/\(ideaId)/fetch-content", body: Empty())
     }
 
+    func enrichIdea(id: String, mode: String) async throws {
+        struct Empty: Encodable {}
+        struct Resp: Decodable { let connections: [Connection] }
+        let _: Resp = try await post("/api/ideas/\(id)/enrich?mode=\(mode)", body: Empty())
+    }
+
     func listTags() async throws -> [Idea] {
         struct Response: Decodable { let tags: [Idea] }
         let response: Response = try await get("/api/tags")

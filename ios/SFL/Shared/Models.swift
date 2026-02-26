@@ -92,6 +92,7 @@ struct IdeaData: Codable {
     let source: String?
     let body: String?       // note content
     let excerpt: String?
+    let markdown: Bool?     // true when text has been LLM-formatted as markdown
 
     // All keys accepted — unknown keys silently ignored
 }

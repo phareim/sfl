@@ -75,6 +75,21 @@ final class IdeaDetailViewModel: ObservableObject {
             isFetchingContent = false
         }
     }
+
+    @Published var isFormattingMarkdown = false
+
+    func formatMarkdown(ideaId: String) {
+        Task {
+            isFormattingMarkdown = true
+            do {
+                try await APIClient.shared.enrichIdea(id: ideaId, mode: "markdown")
+                load(id: ideaId)
+            } catch {
+                self.error = error.localizedDescription
+            }
+            isFormattingMarkdown = false
+        }
+    }
 }
 
 // MARK: - View
@@ -144,11 +159,33 @@ struct IdeaDetailView: View {
 
                 if let content = contentText(idea) {
                     sectionBlock(label: "CONTENT") {
-                        Text(content)
-                            .font(.sflBody)
-                            .foregroundStyle(Color.sflText)
-                            .lineSpacing(4)
-                            .frame(maxWidth: .infinity, alignment: .leading)
+                        VStack(alignment: .leading, spacing: 12) {
+                            if idea.data?.markdown == true {
+                                MarkdownView(text: content)
+                            } else {
+                                Text(content)
+                                    .font(.sflBody)
+                                    .foregroundStyle(Color.sflText)
+                                    .lineSpacing(4)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                            }
+                            if idea.type != "page", idea.data?.markdown != true {
+                                Button { vm.formatMarkdown(ideaId: idea.id) } label: {
+                                    if vm.isFormattingMarkdown {
+                                        HStack(spacing: 6) {
+                                            ProgressView().tint(Color.sflAccent).scaleEffect(0.75)
+                                            Text("Formatting…").font(.sflSmall).foregroundStyle(Color.sflMuted)
+                                        }
+                                    } else {
+                                        Label("Format text", systemImage: "sparkles")
+                                            .font(.sflSmall)
+                                            .foregroundStyle(Color.sflMuted)
+                                    }
+                                }
+                                .buttonStyle(.plain)
+                                .disabled(vm.isFormattingMarkdown)
+                            }
+                        }
                     }
                     .padding(.bottom, 20)
                 } else if idea.type == "page" {
@@ -520,6 +557,118 @@ struct ConnectionRow: View {
         }
         .padding(12)
         .sflCard(typeColor: type.color)
+    }
+}
+
+// MARK: - Markdown View
+
+struct MarkdownView: View {
+    let text: String
+
+    private enum Block {
+        case h1(String), h2(String), h3(String)
+        case bullet(String)
+        case ordered(Int, String)
+        case codeBlock(String)
+        case blockquote(String)
+        case hr
+        case paragraph(String)
+    }
+
+    private var blocks: [Block] {
+        var result: [Block] = []
+        var codeLines: [String] = []
+        var inCodeBlock = false
+
+        for line in text.components(separatedBy: "\n") {
+            if line.hasPrefix("```") {
+                if inCodeBlock {
+                    result.append(.codeBlock(codeLines.joined(separator: "\n")))
+                    codeLines = []
+                    inCodeBlock = false
+                } else {
+                    inCodeBlock = true
+                }
+                continue
+            }
+            if inCodeBlock { codeLines.append(line); continue }
+
+            let t = line.trimmingCharacters(in: .whitespaces)
+            if t.isEmpty { continue }
+
+            if t.hasPrefix("### ")      { result.append(.h3(String(t.dropFirst(4)))) }
+            else if t.hasPrefix("## ")  { result.append(.h2(String(t.dropFirst(3)))) }
+            else if t.hasPrefix("# ")   { result.append(.h1(String(t.dropFirst(2)))) }
+            else if t.hasPrefix("- ") || t.hasPrefix("* ") { result.append(.bullet(String(t.dropFirst(2)))) }
+            else if t.hasPrefix("> ")   { result.append(.blockquote(String(t.dropFirst(2)))) }
+            else if t == "---" || t == "***" || t == "___" { result.append(.hr) }
+            else if let m = t.range(of: #"^\d+\. "#, options: .regularExpression) {
+                let num = Int(String(t[t.startIndex..<m.upperBound]).filter(\.isNumber)) ?? 1
+                result.append(.ordered(num, String(t[m.upperBound...])))
+            } else {
+                result.append(.paragraph(t))
+            }
+        }
+        return result
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            ForEach(Array(blocks.enumerated()), id: \.offset) { _, block in
+                renderBlock(block)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    @ViewBuilder
+    private func renderBlock(_ block: Block) -> some View {
+        switch block {
+        case .h1(let s):
+            inlineText(s).font(.system(size: 22, weight: .heavy)).foregroundStyle(Color.sflText).padding(.top, 6)
+        case .h2(let s):
+            inlineText(s).font(.system(size: 18, weight: .bold)).foregroundStyle(Color.sflText).padding(.top, 4)
+        case .h3(let s):
+            inlineText(s).font(.system(size: 15, weight: .semibold)).foregroundStyle(Color.sflText).padding(.top, 2)
+        case .bullet(let s):
+            HStack(alignment: .top, spacing: 8) {
+                Text("•").foregroundStyle(Color.sflMuted).font(.sflBody)
+                inlineText(s).font(.sflBody).foregroundStyle(Color.sflText)
+            }
+        case .ordered(let n, let s):
+            HStack(alignment: .top, spacing: 8) {
+                Text("\(n).").foregroundStyle(Color.sflMuted).font(.sflBody)
+                inlineText(s).font(.sflBody).foregroundStyle(Color.sflText)
+            }
+        case .codeBlock(let s):
+            Text(s)
+                .font(.system(.caption, design: .monospaced))
+                .foregroundStyle(Color.sflText)
+                .padding(12)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color.sflSurface)
+                .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(Color.sflStroke, lineWidth: 1))
+                .clipShape(RoundedRectangle(cornerRadius: 4))
+        case .blockquote(let s):
+            HStack(spacing: 10) {
+                Rectangle().fill(Color.sflStroke).frame(width: 3).clipShape(RoundedRectangle(cornerRadius: 2))
+                inlineText(s).font(.sflBody).foregroundStyle(Color.sflMuted).italic()
+            }
+        case .hr:
+            Rectangle().fill(Color.sflStroke).frame(height: 1).padding(.vertical, 4)
+        case .paragraph(let s):
+            inlineText(s).font(.sflBody).foregroundStyle(Color.sflText).lineSpacing(4)
+        }
+    }
+
+    private func inlineText(_ s: String) -> Text {
+        if let attr = try? AttributedString(
+            markdown: s,
+            options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace)
+        ) {
+            return Text(attr)
+        }
+        return Text(s)
     }
 }
 
