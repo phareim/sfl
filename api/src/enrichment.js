@@ -121,7 +121,7 @@ async function formatAsMarkdown(env, idea, data) {
     const text = data.text;
     if (!text || typeof text !== 'string') return;
     // Skip very short texts (nothing to structure) and very long ones (token limits)
-    if (text.length < 100 || text.length > 12000) return;
+    if (text.length < 100 || text.length > 6000) return;
 
     const messages = [
       {
@@ -132,7 +132,7 @@ async function formatAsMarkdown(env, idea, data) {
       { role: 'user', content: text },
     ];
 
-    const response = await env.AI.run('@cf/meta/llama-3.1-8b-instruct', { messages });
+    const response = await env.AI.run('@cf/meta/llama-3.1-8b-instruct', { messages, max_tokens: 4096 });
     const formatted = response?.response?.trim();
     if (!formatted) return;
 
