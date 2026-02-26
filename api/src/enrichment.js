@@ -1,30 +1,38 @@
-import { getIdea } from './db/ideas.js';
+import { getIdea, searchIdeas, listIdeas } from './db/ideas.js';
 import { generateId } from './lib/nanoid.js';
 import { getJson } from './lib/r2.js';
 
 /**
- * Auto-tag a newly created idea using Workers AI.
+ * Auto-tag and auto-connect a newly created idea using Workers AI.
  * Called via ctx.waitUntil() — errors are swallowed so they never affect the response.
  */
 export async function enrichIdea(env, ideaId) {
   try {
     const idea = await getIdea(env.DB, ideaId);
     if (!idea) return;
-
-    // No point tagging a tag
     if (idea.type === 'tag') return;
 
+    const data = (await getJson(env.R2, idea.r2_key)) ?? {};
+    const description = buildIdeaDescription(idea, data);
+
+    await Promise.all([
+      applyTags(env, idea, description),
+      applyConnections(env, idea, description),
+    ]);
+  } catch {
+    // Best-effort: never surface enrichment errors
+  }
+}
+
+async function applyTags(env, idea, description) {
+  try {
     const { results: tags } = await env.DB
       .prepare("SELECT id, title FROM ideas WHERE type = 'tag' ORDER BY title ASC")
       .all();
 
     if (tags.length === 0) return;
 
-    const data = (await getJson(env.R2, idea.r2_key)) ?? {};
-
-    const ideaDescription = buildIdeaDescription(idea, data);
     const tagList = tags.map((t) => `${t.id}: ${t.title}`).join('\n');
-
     const messages = [
       {
         role: 'system',
@@ -33,42 +41,106 @@ export async function enrichIdea(env, ideaId) {
       },
       {
         role: 'user',
-        content: `Idea:\n${ideaDescription}\n\nAvailable tags:\n${tagList}`,
+        content: `Idea:\n${description}\n\nAvailable tags:\n${tagList}`,
       },
     ];
 
-    const response = await env.AI.run('@cf/meta/llama-3.1-8b-instruct', { messages });
-    const text = response?.response?.trim() ?? '';
+    const ids = await callAI(env, messages, new Set(tags.map((t) => t.id)));
+    if (ids.length === 0) return;
 
-    let tagIds;
-    try {
-      tagIds = JSON.parse(text);
-    } catch {
-      // Try to extract a JSON array from the response if model added surrounding text
-      const match = text.match(/\[[\s\S]*\]/);
-      if (!match) return;
-      tagIds = JSON.parse(match[0]);
-    }
-
-    if (!Array.isArray(tagIds) || tagIds.length === 0) return;
-
-    const validTagIds = new Set(tags.map((t) => t.id));
     const now = Date.now();
-
-    for (const tagId of tagIds) {
-      if (!validTagIds.has(tagId)) continue;
-
+    for (const tagId of ids) {
       await env.DB
         .prepare(
           `INSERT OR IGNORE INTO connections (id, from_id, to_id, label, created_at)
            VALUES (?, ?, ?, 'tagged_with', ?)`
         )
-        .bind(generateId(), ideaId, tagId, now)
+        .bind(generateId(), idea.id, tagId, now)
         .run();
     }
   } catch {
-    // Best-effort: never let enrichment errors surface
+    // Best-effort
   }
+}
+
+async function applyConnections(env, idea, description) {
+  try {
+    const candidates = await findCandidates(env, idea);
+    if (candidates.length === 0) return;
+
+    const candidateList = candidates
+      .map((c) => {
+        const line = `${c.id}: ${c.title ?? '(untitled)'}`;
+        return c.summary ? `${line} — ${c.summary.slice(0, 120)}` : line;
+      })
+      .join('\n');
+
+    const messages = [
+      {
+        role: 'system',
+        content:
+          'You are a knowledge graph assistant. Given a new idea and a list of existing ideas, return a JSON array of IDs of ideas that are meaningfully related to the new idea. Be selective — only include genuinely related ideas, not superficial matches. Return only the JSON array, nothing else. If nothing is related, return [].',
+      },
+      {
+        role: 'user',
+        content: `New idea:\n${description}\n\nExisting ideas:\n${candidateList}`,
+      },
+    ];
+
+    const ids = await callAI(env, messages, new Set(candidates.map((c) => c.id)));
+    if (ids.length === 0) return;
+
+    const now = Date.now();
+    for (const relatedId of ids) {
+      await env.DB
+        .prepare(
+          `INSERT OR IGNORE INTO connections (id, from_id, to_id, label, created_at)
+           VALUES (?, ?, ?, 'related_to', ?)`
+        )
+        .bind(generateId(), idea.id, relatedId, now)
+        .run();
+    }
+  } catch {
+    // Best-effort
+  }
+}
+
+async function findCandidates(env, idea) {
+  const queryTerms = [idea.title, idea.summary].filter(Boolean).join(' ').slice(0, 200);
+
+  let candidates = [];
+  if (queryTerms) {
+    try {
+      candidates = await searchIdeas(env.DB, queryTerms, { limit: 25 });
+    } catch {
+      // FTS can fail on certain inputs (special chars); fall through
+    }
+  }
+
+  // Fall back to recent ideas if search yields nothing
+  if (candidates.length === 0) {
+    const { ideas } = await listIdeas(env.DB, { limit: 25 });
+    candidates = ideas;
+  }
+
+  return candidates.filter((c) => c.id !== idea.id && c.type !== 'tag');
+}
+
+async function callAI(env, messages, validIds) {
+  const response = await env.AI.run('@cf/meta/llama-3.1-8b-instruct', { messages });
+  const text = response?.response?.trim() ?? '';
+
+  let ids;
+  try {
+    ids = JSON.parse(text);
+  } catch {
+    const match = text.match(/\[[\s\S]*\]/);
+    if (!match) return [];
+    ids = JSON.parse(match[0]);
+  }
+
+  if (!Array.isArray(ids)) return [];
+  return ids.filter((id) => validIds.has(id));
 }
 
 function buildIdeaDescription(idea, data) {
