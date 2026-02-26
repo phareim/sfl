@@ -38,6 +38,22 @@
     editingTitle = true;
   }
 
+  let editingText = false;
+  let textDraft = '';
+
+  function startEditText() {
+    textDraft = data.text ?? '';
+    editingText = true;
+  }
+
+  async function saveText() {
+    const trimmed = textDraft.trim();
+    editingText = false;
+    if (trimmed === (data.text ?? '').trim()) return;
+    const result = await updateIdea(idea.id, { data: { ...data, text: trimmed } });
+    data = result.data;
+  }
+
   let fetching = false;
   let enrichingTags = false;
   let enrichingConnections = false;
@@ -341,8 +357,28 @@
       </section>
     {/if}
 
-    {#if idea.type === 'page' && data.text}
-      <section class="reader" style="--article-accent: {accent}">
+    {#if editingText}
+      <!-- svelte-ignore a11y_autofocus -->
+      <textarea
+        class="text-edit"
+        bind:value={textDraft}
+        autofocus
+        on:blur={saveText}
+        on:keydown={(e) => {
+          if (e.key === 'Escape') { editingText = false; }
+          if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') saveText();
+        }}
+      ></textarea>
+    {:else if idea.type === 'page' && data.text}
+      <section
+        class="reader editable-content"
+        style="--article-accent: {accent}"
+        title="Click to edit"
+        role="button"
+        tabindex="0"
+        on:click={startEditText}
+        on:keydown={(e) => e.key === 'Enter' && startEditText()}
+      >
         {#each data.text.split('\n\n').filter(Boolean) as para}
           <p>{para}</p>
         {/each}
@@ -352,7 +388,14 @@
         <pre>{data.content}</pre>
       </section>
     {:else if data.text}
-      <section class="content">
+      <section
+        class="content editable-content"
+        title="Click to edit"
+        role="button"
+        tabindex="0"
+        on:click={startEditText}
+        on:keydown={(e) => e.key === 'Enter' && startEditText()}
+      >
         {#if data.markdown}
           <div class="markdown-body">{@html marked.parse(data.text)}</div>
         {:else}
@@ -563,6 +606,24 @@
 
   /* ── CONTENT ── */
   .content { margin: 28px 0; }
+  .editable-content { cursor: text; }
+  .text-edit {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+    margin: 28px 0;
+    padding: 16px 20px;
+    background: var(--surface);
+    border: 2px solid var(--accent);
+    border-radius: var(--r);
+    color: var(--text);
+    font-size: 0.95rem;
+    font-family: inherit;
+    line-height: 1.6;
+    resize: vertical;
+    outline: none;
+    min-height: 12em;
+  }
   pre { white-space: pre-wrap; font-family: inherit; font-size: 0.95rem; line-height: 1.6; }
   blockquote {
     border-left: 4px solid;
