@@ -1,5 +1,4 @@
 <script>
-  import { onMount } from 'svelte';
   import { page } from '$app/stores';
   import { getIdea, deleteIdea } from '$lib/api/ideas.js';
   import IdeaDetail from '$lib/components/IdeaDetail.svelte';
@@ -13,9 +12,11 @@
   let loading = true;
   let error = null;
 
-  onMount(async () => {
+  async function loadIdea(id) {
+    loading = true;
+    error = null;
+    idea = null;
     try {
-      const id = $page.params.id;
       const result = await getIdea(id);
       idea = result.idea;
       data = result.data;
@@ -27,7 +28,9 @@
     } finally {
       loading = false;
     }
-  });
+  }
+
+  $: loadIdea($page.params.id);
 
   async function handleDelete() {
     if (!confirm('Delete this idea?')) return;
