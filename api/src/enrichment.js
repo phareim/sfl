@@ -127,7 +127,7 @@ async function formatAsMarkdown(env, idea, data) {
       {
         role: 'system',
         content:
-          'You are a text formatter. Convert the following raw text into well-structured Markdown. Use headers, bullet points, bold, italic, and other Markdown elements where they improve readability and structure. Preserve all information. Return only the formatted Markdown, nothing else.',
+          'You are a Markdown formatter. Add Markdown syntax to the text below to improve its visual structure. STRICT RULES: do NOT change, add, remove, or reorder any words. Do NOT paraphrase, summarize, or expand anything. Only insert Markdown characters (# ## ### * - ** __ ` etc.) where they genuinely help. Every word in your output must appear in the input, unchanged and in the same order. Return only the formatted text, no preamble.',
       },
       { role: 'user', content: text },
     ];
