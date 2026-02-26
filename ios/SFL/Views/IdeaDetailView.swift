@@ -339,13 +339,15 @@ struct IdeaDetailView: View {
 
                 if !idea.relatedConnections.isEmpty {
                     sectionBlock() {
-                        VStack(spacing: 8) {
-                            ForEach(idea.relatedConnections) { conn in
-                                let other = conn.other(from: idea.id)
-                                NavigationLink(destination: IdeaDetailView(id: other.id)) {
+                        VStack(spacing: 0) {
+                            ForEach(Array(idea.relatedConnections.enumerated()), id: \.element.id) { i, conn in
+                                NavigationLink(destination: IdeaDetailView(id: conn.other(from: idea.id).id)) {
                                     ConnectionRow(connection: conn, ideaId: idea.id)
                                 }
                                 .buttonStyle(.plain)
+                                if i < idea.relatedConnections.count - 1 {
+                                    Divider()
+                                }
                             }
                         }
                     }
@@ -532,10 +534,10 @@ struct ConnectionRow: View {
     var body: some View {
         let other = connection.other(from: ideaId)
         let type = other.type.ideaType
-        HStack {
+        HStack(spacing: 8) {
             Text(type.icon).font(.system(size: 13))
             Text(other.title)
-                .font(.sflCardTitle)
+                .font(.sflBody)
                 .foregroundStyle(Color.sflText)
                 .lineLimit(1)
             Spacer()
@@ -548,8 +550,7 @@ struct ConnectionRow: View {
                 .font(.system(size: 11, weight: .semibold))
                 .foregroundStyle(Color.sflMuted)
         }
-        .padding(12)
-        .sflCard(typeColor: type.color)
+        .padding(.vertical, 10)
     }
 }
 

@@ -646,20 +646,14 @@
     display: flex;
     align-items: baseline;
     gap: 10px;
-    padding: 10px 14px;
-    border: 2px solid var(--stroke);
-    border-radius: var(--r);
+    padding: 9px 0;
+    border-bottom: 1px solid var(--stroke);
     text-decoration: none;
     color: var(--text);
-    margin-bottom: 8px;
-    box-shadow: var(--shadow);
-    transition: box-shadow 0.1s, transform 0.1s;
   }
-  .conn-link:hover {
-    box-shadow: var(--shadow-hover);
-    transform: translate(-1px, -1px);
-  }
-  .conn-title { font-weight: 600; font-size: 0.92rem; }
+  .conn-link:last-child { border-bottom: none; }
+  .conn-link:hover .conn-title { color: var(--accent); }
+  .conn-title { font-size: 0.92rem; font-weight: 500; transition: color 0.1s; }
   .conn-label {
     font-size: 0.72rem;
     text-transform: uppercase;
