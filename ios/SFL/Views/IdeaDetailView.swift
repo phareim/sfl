@@ -158,7 +158,7 @@ struct IdeaDetailView: View {
                     .padding(.bottom, 24)
 
                 if let content = contentText(idea) {
-                    sectionBlock(label: "CONTENT") {
+                    sectionBlock() {
                         VStack(alignment: .leading, spacing: 12) {
                             if idea.data?.markdown == true {
                                 MarkdownView(text: content)
@@ -189,7 +189,7 @@ struct IdeaDetailView: View {
                     }
                     .padding(.bottom, 20)
                 } else if idea.type == "page" {
-                    sectionBlock(label: "CONTENT") {
+                    sectionBlock() {
                         Button { vm.fetchContent(ideaId: idea.id) } label: {
                             if vm.isFetchingContent {
                                 HStack(spacing: 8) {
@@ -209,7 +209,7 @@ struct IdeaDetailView: View {
                 }
 
                 if let url = idea.url {
-                    sectionBlock(label: "SOURCE") {
+                    sectionBlock() {
                         Link(destination: URL(string: url) ?? URL(string: "https://example.com")!) {
                             Text(url)
                                 .font(.sflSmall)
@@ -224,7 +224,7 @@ struct IdeaDetailView: View {
                 if idea.type == "tag" {
                     // Tag detail: list the ideas tagged with this tag
                     if !idea.tags.isEmpty {
-                        sectionBlock(label: "IDEAS") {
+                        sectionBlock() {
                             VStack(spacing: 8) {
                                 ForEach(idea.tags) { conn in
                                     let other = conn.other(from: idea.id)
@@ -251,7 +251,7 @@ struct IdeaDetailView: View {
                     }
                 } else {
                     // Regular idea: removable tag pills + add button
-                    sectionBlock(label: "TAGS") {
+                    sectionBlock() {
                         VStack(alignment: .leading, spacing: 10) {
                             if !idea.tags.isEmpty {
                                 FlowLayout(spacing: 8) {
@@ -283,7 +283,7 @@ struct IdeaDetailView: View {
                 }
 
                 // Notes — always shown so you can add
-                sectionBlock(label: "NOTES") {
+                sectionBlock() {
                     VStack(alignment: .leading, spacing: 10) {
                         ForEach(idea.notes ?? []) { note in
                             VStack(alignment: .leading, spacing: 4) {
@@ -338,7 +338,7 @@ struct IdeaDetailView: View {
                 .padding(.bottom, 20)
 
                 if !idea.relatedConnections.isEmpty {
-                    sectionBlock(label: "CONNECTIONS") {
+                    sectionBlock() {
                         VStack(spacing: 8) {
                             ForEach(idea.relatedConnections) { conn in
                                 let other = conn.other(from: idea.id)
@@ -396,25 +396,18 @@ struct IdeaDetailView: View {
 
     // MARK: - Section block
 
-    private func sectionBlock<Content: View>(label: String, @ViewBuilder content: () -> Content) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text(label)
-                    .font(.sflLabel)
-                    .tracking(1.5)
-                    .foregroundStyle(Color.sflMuted)
-                Spacer()
-            }
-            .padding(.bottom, 2)
-            .overlay(alignment: .bottom) {
-                Rectangle()
-                    .fill(Color.sflStroke)
-                    .frame(height: 2)
-            }
+    private func sectionBlock<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Rectangle()
+                .fill(Color.sflStroke)
+                .frame(height: 1)
 
-            content()
+            VStack(alignment: .leading, spacing: 12) {
+                content()
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 20)
         }
-        .padding(.horizontal, 20)
     }
 
     // MARK: - Content text helper

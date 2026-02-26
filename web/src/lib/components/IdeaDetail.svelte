@@ -207,20 +207,17 @@
       </section>
     {/if}
 
-    <section class="section">
-      <h2 class="section-label">
-        {taggedIdeas.length} {taggedIdeas.length === 1 ? 'idea' : 'ideas'}
-      </h2>
-      {#if taggedIdeas.length > 0}
+    {#if taggedIdeas.length > 0}
+      <section class="section">
         <div class="grid">
           {#each taggedIdeas as tidea (tidea.id)}
             <IdeaCard idea={tidea} />
           {/each}
         </div>
-      {:else}
-        <p class="muted">Nothing tagged with #{idea.title} yet.</p>
-      {/if}
-    </section>
+      </section>
+    {:else}
+      <p class="muted">Nothing tagged with #{idea.title} yet.</p>
+    {/if}
   </article>
 
 {:else}
@@ -401,7 +398,6 @@
 
     {#if relatedConnections.length > 0}
       <section class="section">
-        <h2 class="section-label">Connections</h2>
         {#each relatedConnections as conn}
           <a
             class="conn-link"
@@ -639,16 +635,10 @@
   .markdown-body :global(hr) { border: none; border-top: 1px solid var(--stroke); margin: 1.2em 0; }
 
   /* ── SECTIONS ── */
-  .section { margin-top: 32px; }
-  .section-label {
-    margin: 0 0 16px;
-    font-size: 0.72rem;
-    text-transform: uppercase;
-    letter-spacing: 0.12em;
-    font-weight: 800;
-    color: var(--muted);
-    padding-bottom: 8px;
-    border-bottom: 2px solid var(--stroke);
+  .section {
+    margin-top: 32px;
+    padding-top: 24px;
+    border-top: 1px solid var(--stroke);
   }
 
   /* ── CONNECTIONS ── */
