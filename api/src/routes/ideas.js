@@ -29,8 +29,8 @@ ideas.get('/search', async (c) => {
 
 // GET /api/ideas
 ideas.get('/', async (c) => {
-  const { type, tag, limit, cursor } = c.req.query();
-  const result = await listIdeas(c.env.DB, { type, tag, limit, cursor });
+  const { type, tag, project, limit, cursor } = c.req.query();
+  const result = await listIdeas(c.env.DB, { type, tag, url: project, limit, cursor });
   return c.json(result);
 });
 
@@ -53,12 +53,15 @@ ideas.post('/', async (c) => {
   // Write content blob to R2
   await putJson(c.env.R2, r2_key, data ?? {});
 
+  // For meta ideas, store project URL in D1 url for efficient filtering
+  const resolvedUrl = url ?? (type === 'meta' ? (data?.project ?? null) : null);
+
   // Write metadata row to D1
   await insertIdea(c.env.DB, {
     id,
     type,
     title: title ?? null,
-    url: url ?? null,
+    url: resolvedUrl,
     summary: summary ?? null,
     r2_key,
     created_at: now,

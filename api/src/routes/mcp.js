@@ -44,12 +44,13 @@ const TOOLS = [
   },
   {
     name: 'list_ideas',
-    description: 'List ideas, optionally filtered by type or tag.',
+    description: 'List ideas, optionally filtered by type or tag. When listing meta ideas (type="meta"), always pass the `project` parameter with the GitHub repo URL of the current working repository (detect from git remote).',
     inputSchema: {
       type: 'object',
       properties: {
         type: { type: 'string', description: 'Filter by type: note, page, quote, book, tweet, image, tag, meta' },
         tag: { type: 'string', description: 'Filter by tag ID or tag title' },
+        project: { type: 'string', description: 'GitHub repo URL to filter meta ideas by project (e.g. https://github.com/owner/repo). Detect from git remote of the current working directory.' },
         limit: { type: 'number', description: 'Max results (default 20)' },
         cursor: { type: 'string', description: 'Pagination cursor from previous response' },
       },
@@ -68,7 +69,7 @@ const TOOLS = [
   },
   {
     name: 'create_idea',
-    description: 'Create a new idea of any type (note, page, quote, book, tweet, image, tag, meta).',
+    description: 'Create a new idea of any type (note, page, quote, book, tweet, image, tag, meta). For meta type, always include `data.project` with the GitHub repo URL of the current working repository.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -76,7 +77,7 @@ const TOOLS = [
         title: { type: 'string', description: 'Title' },
         url: { type: 'string', description: 'URL (for page/tweet types)' },
         summary: { type: 'string', description: 'Short summary' },
-        data: { type: 'object', description: 'Type-specific content blob' },
+        data: { type: 'object', description: 'Type-specific content blob. For meta: { project, priority, status, git_commit, implementation_details }' },
       },
       required: ['type'],
     },
@@ -194,6 +195,7 @@ async function executeTool(name, args, env) {
       return listIdeas(env.DB, {
         type: args.type,
         tag: args.tag,
+        url: args.project,
         limit: args.limit,
         cursor: args.cursor,
       });
@@ -218,11 +220,15 @@ async function executeTool(name, args, env) {
       const r2Key = dataKey(id);
 
       await putJson(env.R2, r2Key, args.data ?? {});
+
+      // For meta ideas, store project URL in D1 url for efficient filtering
+      const url = args.url ?? (args.type === 'meta' ? (args.data?.project ?? null) : null);
+
       await insertIdea(env.DB, {
         id,
         type: args.type,
         title: args.title ?? null,
-        url: args.url ?? null,
+        url,
         summary: args.summary ?? null,
         r2_key: r2Key,
         created_at: now,
@@ -272,9 +278,14 @@ async function executeTool(name, args, env) {
       if (args.data !== undefined) {
         await putJson(env.R2, existing.r2_key, args.data);
       }
+      // For meta ideas, keep D1 url in sync with data.project
+      let url = existing.url;
+      if (existing.type === 'meta' && args.data?.project !== undefined) {
+        url = args.data.project;
+      }
       await updateIdea(env.DB, args.id, {
         title: args.title !== undefined ? args.title : existing.title,
-        url: existing.url,
+        url,
         summary: args.summary !== undefined ? args.summary : existing.summary,
         updated_at: now,
       });

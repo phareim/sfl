@@ -23,10 +23,10 @@ export async function getIdea(db, id) {
 }
 
 /**
- * List ideas with optional cursor-based pagination and type filter.
+ * List ideas with optional cursor-based pagination and type/tag/url filter.
  * Returns { ideas, nextCursor }
  */
-export async function listIdeas(db, { type, tag, limit = 20, cursor } = {}) {
+export async function listIdeas(db, { type, tag, url, limit = 20, cursor } = {}) {
   limit = Math.min(Number(limit) || 20, 100);
 
   let sql;
@@ -36,33 +36,39 @@ export async function listIdeas(db, { type, tag, limit = 20, cursor } = {}) {
     // Filter by tag via connections table
     const cursorClause = cursor ? 'AND i.created_at < ?' : '';
     const typeClause = type ? 'AND i.type = ?' : '';
+    const urlClause = url ? 'AND i.url = ?' : '';
     sql = `
       SELECT i.* FROM ideas i
       JOIN connections c ON c.from_id = i.id AND c.label = 'tagged_with'
       JOIN ideas t ON t.id = c.to_id AND t.type = 'tag'
       WHERE (t.id = ? OR t.title = ?)
       ${typeClause}
+      ${urlClause}
       ${cursorClause}
       ORDER BY i.created_at DESC
       LIMIT ?
     `;
     params = [tag, tag];
     if (type) params.push(type);
+    if (url) params.push(url);
     if (cursor) params.push(Number(cursor));
     params.push(limit + 1);
   } else {
     const cursorClause = cursor ? 'AND created_at < ?' : '';
     const typeClause = type ? 'AND type = ?' : '';
+    const urlClause = url ? 'AND url = ?' : '';
     sql = `
       SELECT * FROM ideas
       WHERE 1=1
       ${typeClause}
+      ${urlClause}
       ${cursorClause}
       ORDER BY created_at DESC
       LIMIT ?
     `;
     params = [];
     if (type) params.push(type);
+    if (url) params.push(url);
     if (cursor) params.push(Number(cursor));
     params.push(limit + 1);
   }
