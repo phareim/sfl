@@ -4,7 +4,7 @@
   import TagEditor from './TagEditor.svelte';
   import IdeaCard from './IdeaCard.svelte';
   import { updateNote } from '../api/notes.js';
-  import { updateIdea, fetchContent } from '../api/ideas.js';
+  import { updateIdea, fetchContent, enrichIdea } from '../api/ideas.js';
 
   export let idea;
   export let data = {};
@@ -38,6 +38,8 @@
   }
 
   let fetching = false;
+  let enrichingTags = false;
+  let enrichingConnections = false;
   let pastingText = false;
   let pasteBuffer = '';
 
@@ -101,6 +103,26 @@
         )
         .filter((i) => i.type !== 'tag')
     : [];
+
+  async function doEnrichTags() {
+    enrichingTags = true;
+    try {
+      const result = await enrichIdea(idea.id, 'tags');
+      connections = result.connections;
+    } finally {
+      enrichingTags = false;
+    }
+  }
+
+  async function doEnrichConnections() {
+    enrichingConnections = true;
+    try {
+      const result = await enrichIdea(idea.id, 'connections');
+      connections = result.connections;
+    } finally {
+      enrichingConnections = false;
+    }
+  }
 
   async function saveMetaField(field, value) {
     const updated = await updateIdea(idea.id, { data: { ...data, [field]: value } });
@@ -212,6 +234,14 @@
       {/if}
       <div class="tags-row">
         <TagEditor ideaId={idea.id} {currentTags} />
+      </div>
+      <div class="enrich-row">
+        <button class="enrich-btn" on:click={doEnrichTags} disabled={enrichingTags || enrichingConnections}>
+          {enrichingTags ? 'Tagging…' : 'Auto-tag'}
+        </button>
+        <button class="enrich-btn" on:click={doEnrichConnections} disabled={enrichingTags || enrichingConnections}>
+          {enrichingConnections ? 'Connecting…' : 'Find connections'}
+        </button>
       </div>
     </header>
 
@@ -495,6 +525,20 @@
   .source-url { font-size: 0.8rem; color: var(--muted); word-break: break-all; text-decoration: none; display: block; }
   .source-url:hover { color: var(--text); }
   .tags-row { margin-top: 14px; }
+  .enrich-row { margin-top: 10px; display: flex; gap: 8px; }
+  .enrich-btn {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--muted);
+    background: transparent;
+    border: 1px dashed var(--stroke);
+    border-radius: var(--r);
+    padding: 3px 10px;
+    cursor: pointer;
+    transition: color 0.1s, border-color 0.1s;
+  }
+  .enrich-btn:hover:not(:disabled) { color: var(--text); border-color: var(--text); border-style: solid; }
+  .enrich-btn:disabled { opacity: 0.4; cursor: default; }
 
   /* ── CONTENT ── */
   .content { margin: 28px 0; }

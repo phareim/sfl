@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import { generateId } from '../lib/nanoid.js';
 import { putJson, getJson, deleteObject, dataKey } from '../lib/r2.js';
 import { badRequest, notFound, serverError } from '../lib/errors.js';
-import { enrichIdea } from '../enrichment.js';
+import { enrichIdea, runEnrichment } from '../enrichment.js';
 import {
   insertIdea,
   getIdea,
@@ -124,6 +124,23 @@ ideas.put('/:id', async (c) => {
   const idea = await getIdea(c.env.DB, id);
   const blobData = await getJson(c.env.R2, idea.r2_key);
   return c.json({ idea, data: blobData ?? {} });
+});
+
+// POST /api/ideas/:id/enrich?mode=tags|connections|all
+ideas.post('/:id/enrich', async (c) => {
+  const id = c.req.param('id');
+  const idea = await getIdea(c.env.DB, id);
+  if (!idea) return notFound('Idea not found');
+
+  const mode = c.req.query('mode') ?? 'all';
+  if (!['tags', 'connections', 'all'].includes(mode)) {
+    return badRequest('mode must be tags, connections, or all');
+  }
+
+  await runEnrichment(c.env, id, mode);
+
+  const connections = await getIdeaConnections(c.env.DB, id);
+  return c.json({ connections });
 });
 
 // POST /api/ideas/:id/fetch-content

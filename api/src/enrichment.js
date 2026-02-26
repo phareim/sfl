@@ -8,20 +8,30 @@ import { getJson } from './lib/r2.js';
  */
 export async function enrichIdea(env, ideaId) {
   try {
-    const idea = await getIdea(env.DB, ideaId);
-    if (!idea) return;
-    if (idea.type === 'tag') return;
-
-    const data = (await getJson(env.R2, idea.r2_key)) ?? {};
-    const description = buildIdeaDescription(idea, data);
-
-    await Promise.all([
-      applyTags(env, idea, description),
-      applyConnections(env, idea, description),
-    ]);
+    await runEnrichment(env, ideaId, 'all');
   } catch {
     // Best-effort: never surface enrichment errors
   }
+}
+
+/**
+ * Run enrichment for an idea with a specific mode.
+ * Throws on error — callers are responsible for handling.
+ *
+ * @param {'tags'|'connections'|'all'} mode
+ */
+export async function runEnrichment(env, ideaId, mode = 'all') {
+  const idea = await getIdea(env.DB, ideaId);
+  if (!idea) return;
+  if (idea.type === 'tag') return;
+
+  const data = (await getJson(env.R2, idea.r2_key)) ?? {};
+  const description = buildIdeaDescription(idea, data);
+
+  const tasks = [];
+  if (mode === 'tags' || mode === 'all') tasks.push(applyTags(env, idea, description));
+  if (mode === 'connections' || mode === 'all') tasks.push(applyConnections(env, idea, description));
+  await Promise.all(tasks);
 }
 
 async function applyTags(env, idea, description) {
