@@ -23,6 +23,13 @@ export async function getIdea(db, id) {
 }
 
 /**
+ * Fetch the first idea row matching a URL. Returns null if not found.
+ */
+export async function getIdeaByUrl(db, url) {
+  return db.prepare('SELECT * FROM ideas WHERE url = ? LIMIT 1').bind(url).first();
+}
+
+/**
  * List ideas with optional cursor-based pagination and type/tag/url filter.
  * Returns { ideas, nextCursor }
  */

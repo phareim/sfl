@@ -6,6 +6,7 @@ import { enrichIdea, runEnrichment } from '../enrichment.js';
 import {
   insertIdea,
   getIdea,
+  getIdeaByUrl,
   listIdeas,
   updateIdea,
   deleteIdea,
@@ -46,6 +47,20 @@ ideas.post('/', async (c) => {
 
   const { type, title, url, summary, data } = body;
   if (!type) return badRequest('type is required');
+
+  // Return existing idea if URL already captured
+  if (url) {
+    const existing = await getIdeaByUrl(c.env.DB, url);
+    if (existing) {
+      const [existingData, connections, notes, media] = await Promise.all([
+        getJson(c.env.R2, existing.r2_key),
+        getIdeaConnections(c.env.DB, existing.id),
+        getIdeaNotes(c.env.DB, existing.id),
+        getIdeaMedia(c.env.DB, existing.id),
+      ]);
+      return c.json({ idea: existing, data: existingData ?? {}, connections, notes, media, existing: true });
+    }
+  }
 
   const id = generateId();
   const now = Date.now();
