@@ -44,7 +44,7 @@ const TOOLS = [
   },
   {
     name: 'list_ideas',
-    description: 'List ideas, optionally filtered by type or tag. When listing meta ideas (type="meta"), always pass the `project` parameter with the GitHub repo URL of the current working repository (detect from git remote).',
+    description: 'List ideas, optionally filtered by type or tag. When listing meta ideas (type="meta"), always pass the `project` parameter with the GitHub repo URL of the current working repository (detect from git remote). Meta ideas are the project backlog — check them at the start of a session to see what needs doing.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -69,7 +69,7 @@ const TOOLS = [
   },
   {
     name: 'create_idea',
-    description: 'Create a new idea of any type (note, page, quote, book, tweet, image, tag, meta). For meta type, always include `data.project` with the GitHub repo URL of the current working repository.',
+    description: 'Create a new idea of any type (note, page, quote, book, tweet, image, tag, meta). For meta type, always include `data.project` with the GitHub repo URL of the current working repository. Meta ideas track feature/task backlog items — set status to "in_progress" when starting work, "done" when complete.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -77,7 +77,7 @@ const TOOLS = [
         title: { type: 'string', description: 'Title' },
         url: { type: 'string', description: 'URL (for page/tweet types)' },
         summary: { type: 'string', description: 'Short summary' },
-        data: { type: 'object', description: 'Type-specific content blob. For meta: { project, priority, status, git_commit, implementation_details }' },
+        data: { type: 'object', description: 'Type-specific content blob. For meta: { project (GitHub repo URL), priority (A/B/C/D), status (draft/in_progress/done), git_commit, implementation_details }' },
       },
       required: ['type'],
     },
@@ -121,14 +121,15 @@ const TOOLS = [
   },
   {
     name: 'update_idea',
-    description: 'Update an existing idea. Pass only the fields you want to change. Use this to mark a meta idea as done after implementing a feature.',
+    description:
+      'Update an existing idea. Pass only the fields you want to change. `data` is merged (patched) into the existing data blob — you only need to include the keys you want to update.\n\nMeta idea lifecycle: when you start working on a meta idea, update its status to "in_progress". When the feature is implemented, mark it "done". Example: update_idea({ id, data: { status: "done", git_commit: "<sha>" } }).',
     inputSchema: {
       type: 'object',
       properties: {
         id: { type: 'string', description: 'Idea ID' },
         title: { type: 'string' },
         summary: { type: 'string' },
-        data: { type: 'object', description: 'Replaces the full data blob' },
+        data: { type: 'object', description: 'Partial data to merge into the existing data blob. For meta ideas: { status, priority, git_commit, implementation_details, project }. Valid status values: draft, in_progress, done.' },
       },
       required: ['id'],
     },
@@ -276,7 +277,8 @@ async function executeTool(name, args, env) {
       if (!existing) return { error: `Idea ${args.id} not found` };
       const now = Date.now();
       if (args.data !== undefined) {
-        await putJson(env.R2, existing.r2_key, args.data);
+        const existingData = (await getJson(env.R2, existing.r2_key)) ?? {};
+        await putJson(env.R2, existing.r2_key, { ...existingData, ...args.data });
       }
       // For meta ideas, keep D1 url in sync with data.project
       let url = existing.url;
