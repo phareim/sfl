@@ -41,6 +41,7 @@ struct CaptureView: View {
     let onDismiss: () -> Void
 
     @State private var title = ""
+    @State private var bodyText = ""
     @State private var selectedType = "note"
     @State private var isSaving = false
     @State private var error: String?
@@ -89,9 +90,9 @@ struct CaptureView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     sourceInfo
-                    textPreview
                     typePicker
                     titleField
+                    bodyField
                     tagsSection
                     errorMessage
                 }
@@ -106,6 +107,7 @@ struct CaptureView: View {
         .onAppear {
             title = context.suggestedTitle
             selectedType = context.autoType
+            bodyText = context.selectedText ?? ""
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { titleFocused = true }
         }
         .task { allTags = (try? await APIClient.shared.listTags()) ?? [] }
@@ -156,23 +158,20 @@ struct CaptureView: View {
         }
     }
 
-    // MARK: - Captured text preview
+    // MARK: - Body text field
 
-    @ViewBuilder
-    private var textPreview: some View {
-        if let text = context.selectedText, !text.isEmpty {
-            VStack(alignment: .leading, spacing: 4) {
-                Text("SELECTED TEXT").font(.sflLabel).tracking(1).foregroundStyle(Color.sflMuted)
-                Text(text)
-                    .font(.sflSmall)
-                    .foregroundStyle(Color.sflText)
-                    .lineLimit(5)
-                    .padding(8)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Color.sflSurface)
-                    .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(Color.sflStroke, lineWidth: 1))
-                    .clipShape(RoundedRectangle(cornerRadius: 4))
-            }
+    private var bodyField: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("TEXT").font(.sflLabel).tracking(1).foregroundStyle(Color.sflMuted)
+            TextEditor(text: $bodyText)
+                .font(.sflBody)
+                .foregroundStyle(Color.sflText)
+                .scrollContentBackground(.hidden)
+                .padding(8)
+                .frame(minHeight: 80, maxHeight: 160)
+                .background(Color.sflSurface)
+                .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(Color.sflStroke, lineWidth: 1))
+                .clipShape(RoundedRectangle(cornerRadius: 4))
         }
     }
 
@@ -366,13 +365,12 @@ struct CaptureView: View {
             let textContent = context.selectedText
             let t = title.isEmpty ? (urlString ?? textContent ?? "") : title
 
-            var data: [String: String?]? = nil
-            if let text = textContent, selectedType == "quote" {
-                data = ["text": text, "source": context.sourceApp]
-            }
-            if let text = textContent, selectedType == "note" {
-                data = ["text": text]
-            }
+            let body = bodyText.trimmingCharacters(in: .whitespacesAndNewlines)
+            let data: [String: String?]? = body.isEmpty ? nil : (
+                selectedType == "quote"
+                    ? ["text": body, "source": context.sourceApp]
+                    : ["text": body]
+            )
 
             let created = try await APIClient.shared.createIdea(
                 type: selectedType,

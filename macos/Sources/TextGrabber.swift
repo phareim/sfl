@@ -19,10 +19,16 @@ enum TextGrabber {
 
         if let bundleId = app.bundleIdentifier {
             content.browserURL = browserURL(bundleId: bundleId)
+            content.selectedText = browserSelectedText(bundleId: bundleId)
         }
 
-        content.selectedText = selectedTextViaAccessibility()
-            ?? selectedTextViaPasteboard()
+        if content.selectedText == nil {
+            content.selectedText = selectedTextViaAccessibility()
+        }
+
+        if content.selectedText == nil {
+            content.selectedText = await selectedTextViaPasteboard()
+        }
 
         return content
     }
@@ -40,7 +46,7 @@ enum TextGrabber {
         return title as? String
     }
 
-    // MARK: - Selected text (Accessibility — clean, no clipboard impact)
+    // MARK: - Selected text via Accessibility (works for native apps)
 
     private static func selectedTextViaAccessibility() -> String? {
         let system = AXUIElementCreateSystemWide()
@@ -54,47 +60,65 @@ enum TextGrabber {
         return (text?.isEmpty == false) ? text : nil
     }
 
-    // MARK: - Selected text fallback (simulate ⌘C, read pasteboard)
+    // MARK: - Browser URL + selected text via AppleScript / JavaScript
 
-    private static func selectedTextViaPasteboard() -> String? {
-        let pb = NSPasteboard.general
-        let before = pb.changeCount
-
-        let src = CGEventSource(stateID: CGEventSourceStateID.hidSystemState)
-        let cDown = CGEvent(keyboardEventSource: src, virtualKey: 0x08, keyDown: true)
-        let cUp   = CGEvent(keyboardEventSource: src, virtualKey: 0x08, keyDown: false)
-        cDown?.flags = CGEventFlags.maskCommand
-        cUp?.flags   = CGEventFlags.maskCommand
-        cDown?.post(tap: CGEventTapLocation.cghidEventTap)
-        cUp?.post(tap: CGEventTapLocation.cghidEventTap)
-
-        Thread.sleep(forTimeInterval: 0.1)
-
-        guard pb.changeCount != before else { return nil }
-        return pb.string(forType: .string)
-    }
-
-    // MARK: - Browser URL via AppleScript
-
-    private static let browserScripts: [String: String] = [
-        "com.apple.Safari":
-            "tell application \"Safari\" to return URL of current tab of front window",
-        "com.google.Chrome":
-            "tell application \"Google Chrome\" to return URL of active tab of front window",
-        "company.thebrowser.Browser":
-            "tell application \"Arc\" to return URL of active tab of front window",
-        "com.brave.Browser":
-            "tell application \"Brave Browser\" to return URL of active tab of front window",
-        "com.microsoft.edgemac":
-            "tell application \"Microsoft Edge\" to return URL of active tab of front window",
-        "com.vivaldi.Vivaldi":
-            "tell application \"Vivaldi\" to return URL of active tab of front window",
+    private static let browserScripts: [String: (url: String, selection: String)] = [
+        "com.apple.Safari": (
+            url: "tell application \"Safari\" to return URL of current tab of front window",
+            selection: "tell application \"Safari\" to do JavaScript \"window.getSelection().toString()\" in current tab of front window"
+        ),
+        "com.google.Chrome": (
+            url: "tell application \"Google Chrome\" to return URL of active tab of front window",
+            selection: "tell application \"Google Chrome\" to execute active tab of front window javascript \"window.getSelection().toString()\""
+        ),
+        "company.thebrowser.Browser": (
+            url: "tell application \"Arc\" to return URL of active tab of front window",
+            selection: "tell application \"Arc\" to execute active tab of front window javascript \"window.getSelection().toString()\""
+        ),
+        "com.brave.Browser": (
+            url: "tell application \"Brave Browser\" to return URL of active tab of front window",
+            selection: "tell application \"Brave Browser\" to execute active tab of front window javascript \"window.getSelection().toString()\""
+        ),
+        "com.microsoft.edgemac": (
+            url: "tell application \"Microsoft Edge\" to return URL of active tab of front window",
+            selection: "tell application \"Microsoft Edge\" to execute active tab of front window javascript \"window.getSelection().toString()\""
+        ),
+        "com.vivaldi.Vivaldi": (
+            url: "tell application \"Vivaldi\" to return URL of active tab of front window",
+            selection: "tell application \"Vivaldi\" to execute active tab of front window javascript \"window.getSelection().toString()\""
+        ),
     ]
 
     private static func browserURL(bundleId: String) -> String? {
-        guard let source = browserScripts[bundleId] else { return nil }
+        guard let source = browserScripts[bundleId]?.url else { return nil }
         var error: NSDictionary?
         let result = NSAppleScript(source: source)?.executeAndReturnError(&error)
         return result?.stringValue
+    }
+
+    private static func browserSelectedText(bundleId: String) -> String? {
+        guard let source = browserScripts[bundleId]?.selection else { return nil }
+        var error: NSDictionary?
+        let result = NSAppleScript(source: source)?.executeAndReturnError(&error)
+        guard error == nil, let text = result?.stringValue, !text.isEmpty else { return nil }
+        return text
+    }
+
+    // MARK: - Selected text fallback: System Events ⌘C → pasteboard
+
+    private static func selectedTextViaPasteboard() async -> String? {
+        let pb = NSPasteboard.general
+        let before = pb.changeCount
+
+        let script = NSAppleScript(source: "tell application \"System Events\" to keystroke \"c\" using {command down}")
+        script?.executeAndReturnError(nil)
+
+        for _ in 0..<10 {
+            try? await Task.sleep(for: .milliseconds(50))
+            if pb.changeCount != before {
+                return pb.string(forType: .string)
+            }
+        }
+        return nil
     }
 }
