@@ -79,8 +79,8 @@ struct CaptureView: View {
 
     private var availableTypes: [IdeaType] {
         context.browserURL != nil
-            ? [.page, .tweet, .video, .quote, .note]
-            : [.note, .quote, .text, .page]
+            ? [.page, .tweet, .video, .quote, .note, .meta]
+            : [.note, .quote, .text, .page, .meta]
     }
 
     var body: some View {
@@ -388,7 +388,12 @@ struct CaptureView: View {
                 } else {
                     tagId = tag.id
                 }
-                try await APIClient.shared.createConnection(fromId: created.id, toId: tagId, label: "tagged_with")
+                // Ignore duplicate connection errors (idea may already have this tag from a previous capture)
+                do {
+                    try await APIClient.shared.createConnection(fromId: created.id, toId: tagId, label: "tagged_with")
+                } catch APIError.httpError(400, _) {
+                    // Connection already exists — safe to ignore
+                }
             }
 
             didSave = true
