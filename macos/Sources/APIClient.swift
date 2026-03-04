@@ -82,6 +82,12 @@ final class APIClient {
         return resp.tags
     }
 
+    func listProjects() async throws -> [String] {
+        let resp: IdeasResponse = try await get("/api/ideas?type=meta&limit=100")
+        let urls = resp.ideas.compactMap(\.url)
+        return Array(Set(urls)).sorted()
+    }
+
     func createConnection(fromId: String, toId: String, label: String) async throws {
         struct Body: Encodable { let from_id: String; let to_id: String; let label: String }
         struct Resp: Decodable { let connection: Min; struct Min: Decodable { let id: String } }

@@ -54,6 +54,10 @@ struct CaptureView: View {
     @FocusState private var titleFocused: Bool
     @FocusState private var tagFocused: Bool
 
+    // Meta / projects
+    @State private var projects: [String] = []
+    @State private var selectedProject = ""
+
     private struct TagItem: Identifiable, Equatable {
         let id: String
         let name: String
@@ -91,6 +95,7 @@ struct CaptureView: View {
                 VStack(alignment: .leading, spacing: 16) {
                     sourceInfo
                     typePicker
+                    if selectedType == "meta" { projectPicker }
                     titleField
                     bodyField
                     tagsSection
@@ -110,7 +115,12 @@ struct CaptureView: View {
             bodyText = context.selectedText ?? ""
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { titleFocused = true }
         }
-        .task { allTags = (try? await APIClient.shared.listTags()) ?? [] }
+        .task {
+            async let t = APIClient.shared.listTags()
+            async let p = APIClient.shared.listProjects()
+            allTags = (try? await t) ?? []
+            projects = (try? await p) ?? []
+        }
     }
 
     // MARK: - Header
@@ -219,6 +229,44 @@ struct CaptureView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 4))
                 .focused($titleFocused)
                 .onSubmit { tagFocused = true }
+        }
+    }
+
+    // MARK: - Project picker (meta ideas)
+
+    private var projectPicker: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("PROJECT").font(.sflLabel).tracking(1).foregroundStyle(Color.sflMuted)
+            if projects.isEmpty {
+                TextField("https://github.com/owner/repo", text: $selectedProject)
+                    .textFieldStyle(.plain)
+                    .font(.sflBody)
+                    .padding(10)
+                    .background(Color.sflSurface)
+                    .foregroundStyle(Color.sflText)
+                    .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(Color.sflStroke, lineWidth: 1))
+                    .clipShape(RoundedRectangle(cornerRadius: 4))
+            } else {
+                HStack(spacing: 6) {
+                    ForEach(projects, id: \.self) { project in
+                        let name = project.components(separatedBy: "/").suffix(2).joined(separator: "/")
+                        Button {
+                            selectedProject = project
+                        } label: {
+                            Text(name)
+                                .font(.sflLabel).tracking(0.5)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 5)
+                                .background(selectedProject == project ? Color.sflAccent : Color.sflSurface)
+                                .foregroundStyle(selectedProject == project ? Color.sflInk : Color.sflMuted)
+                                .overlay(RoundedRectangle(cornerRadius: 4)
+                                    .strokeBorder(selectedProject == project ? Color.clear : Color.sflStroke, lineWidth: 1))
+                                .clipShape(RoundedRectangle(cornerRadius: 4))
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
         }
     }
 
@@ -366,11 +414,17 @@ struct CaptureView: View {
             let t = title.isEmpty ? (urlString ?? textContent ?? "") : title
 
             let body = bodyText.trimmingCharacters(in: .whitespacesAndNewlines)
-            let data: [String: String?]? = body.isEmpty ? nil : (
+            var data: [String: String?]? = body.isEmpty ? nil : (
                 selectedType == "quote"
                     ? ["text": body, "source": context.sourceApp]
                     : ["text": body]
             )
+
+            if selectedType == "meta" && !selectedProject.isEmpty {
+                if data == nil { data = [:] }
+                data?["project"] = selectedProject
+                data?["status"] = "draft"
+            }
 
             let created = try await APIClient.shared.createIdea(
                 type: selectedType,
