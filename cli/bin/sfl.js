@@ -32,6 +32,26 @@ async function api(config, path) {
   return res.json();
 }
 
+async function apiPost(config, path, body) {
+  const res = await fetch(`${config.url}${path}`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${config.key}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(`API error ${res.status}: ${await res.text()}`);
+  return res.json();
+}
+
+async function apiPut(config, path, body) {
+  const res = await fetch(`${config.url}${path}`, {
+    method: 'PUT',
+    headers: { Authorization: `Bearer ${config.key}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(`API error ${res.status}: ${await res.text()}`);
+  return res.json();
+}
+
 // --- Git detection ---
 
 function getProjectUrl() {
@@ -89,11 +109,100 @@ async function cmdMeta(config) {
   console.log();
 }
 
+// --- meta add command ---
+
+function parseArgs(argv) {
+  const flags = {};
+  const positional = [];
+  for (let i = 0; i < argv.length; i++) {
+    if (argv[i].startsWith('--')) {
+      flags[argv[i].slice(2)] = argv[i + 1];
+      i++;
+    } else {
+      positional.push(argv[i]);
+    }
+  }
+  return { flags, positional };
+}
+
+async function cmdMetaAdd(config, args) {
+  const { flags, positional } = parseArgs(args);
+  const title = positional.join(' ');
+  if (!title) {
+    console.error('Usage: sfl meta add <title> [--priority A|B|C|D] [--status draft|in_progress|done] [--summary <text>]');
+    process.exit(1);
+  }
+
+  const projectUrl = getProjectUrl();
+  const data = { project: projectUrl };
+  if (flags.priority) data.priority = flags.priority.toUpperCase();
+  if (flags.status) data.status = flags.status;
+
+  const { idea } = await apiPost(config, '/api/ideas', {
+    type: 'meta',
+    title,
+    summary: flags.summary,
+    data,
+  });
+
+  console.log(`Created: [${idea.id}] ${idea.title}`);
+}
+
+// --- meta update command ---
+
+async function cmdMetaUpdate(config, args) {
+  const { flags, positional } = parseArgs(args);
+  const id = positional[0];
+  if (!id) {
+    console.error('Usage: sfl meta update <id> [--title <text>] [--priority A|B|C|D] [--status draft|in_progress|done] [--summary <text>]');
+    process.exit(1);
+  }
+
+  // Fetch existing idea to merge data
+  const existing = await api(config, `/api/ideas/${id}`);
+
+  const body = {};
+  if (flags.title) body.title = flags.title;
+  if (flags.summary) body.summary = flags.summary;
+
+  const dataPatch = {};
+  if (flags.priority) dataPatch.priority = flags.priority.toUpperCase();
+  if (flags.status) dataPatch.status = flags.status;
+
+  if (Object.keys(dataPatch).length > 0) {
+    body.data = { ...existing.data, ...dataPatch };
+  }
+
+  if (Object.keys(body).length === 0) {
+    console.error('Nothing to update. Provide at least one flag.');
+    process.exit(1);
+  }
+
+  const result = await apiPut(config, `/api/ideas/${id}`, body);
+  console.log(`Updated: [${result.idea.id}] ${result.idea.title}`);
+  if (result.data?.priority || result.data?.status) {
+    console.log(`  priority=${result.data.priority ?? '-'}  status=${result.data.status ?? '-'}`);
+  }
+}
+
 // --- Dispatch ---
 
 const cmd = process.argv[2];
+const sub = process.argv[3];
 
-if (cmd === 'meta') {
+if (cmd === 'meta' && sub === 'add') {
+  const config = loadConfig();
+  cmdMetaAdd(config, process.argv.slice(4)).catch((err) => {
+    console.error(`Error: ${err.message}`);
+    process.exit(1);
+  });
+} else if (cmd === 'meta' && sub === 'update') {
+  const config = loadConfig();
+  cmdMetaUpdate(config, process.argv.slice(4)).catch((err) => {
+    console.error(`Error: ${err.message}`);
+    process.exit(1);
+  });
+} else if (cmd === 'meta') {
   const config = loadConfig();
   cmdMeta(config).catch((err) => {
     console.error(`Error: ${err.message}`);
@@ -103,5 +212,7 @@ if (cmd === 'meta') {
   console.log('Usage: sfl <command>');
   console.log('');
   console.log('Commands:');
-  console.log('  meta    List meta ideas for the current git project');
+  console.log('  meta             List meta ideas for the current git project');
+  console.log('  meta add         Create a new meta idea for the current git project');
+  console.log('  meta update <id> Update a meta idea (--title, --priority, --status, --summary)');
 }
