@@ -1,0 +1,6 @@
+{
+  "name": "@sfl/cli",
+  "version": "0.1.0",
+  "type": "module",
+  "bin": { "sfl": "./bin/sfl.js" }
+}

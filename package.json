@@ -4,7 +4,8 @@
   "workspaces": [
     "api",
     "web",
-    "chrome-extension"
+    "chrome-extension",
+    "cli"
   ],
   "scripts": {
     "dev": "pnpm -r --parallel --if-present dev"
