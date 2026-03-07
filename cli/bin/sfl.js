@@ -109,6 +109,40 @@ async function cmdMeta(config) {
   console.log();
 }
 
+// --- meta all command ---
+
+async function cmdMetaAll(config) {
+  const ideas = await api(config, `/api/ideas?type=meta`);
+  if (!ideas.length) {
+    console.log('No meta ideas found.');
+    return;
+  }
+
+  const full = await Promise.all(ideas.map((idea) => api(config, `/api/ideas/${idea.id}`)));
+
+  full.sort((a, b) => {
+    const pa = (a.data?.project ?? '').localeCompare(b.data?.project ?? '');
+    if (pa !== 0) return pa;
+    return priorityRank(a.data?.priority) - priorityRank(b.data?.priority);
+  });
+
+  console.log('\nAll meta ideas\n');
+
+  const priW = 4;
+  const statusW = 14;
+  const projW = 30;
+  console.log(`  ${'PRI'.padEnd(priW)} ${'STATUS'.padEnd(statusW)} ${'PROJECT'.padEnd(projW)} TITLE`);
+
+  for (const idea of full) {
+    const pri = (idea.data?.priority ?? '-').padEnd(priW);
+    const status = (idea.data?.status ?? '-').padEnd(statusW);
+    const rawProj = idea.data?.project ?? '-';
+    const proj = rawProj.replace(/^https?:\/\//, '').padEnd(projW);
+    console.log(`  ${pri} ${status} ${proj} ${idea.title}`);
+  }
+  console.log();
+}
+
 // --- meta add command ---
 
 function parseArgs(argv) {
@@ -190,7 +224,13 @@ async function cmdMetaUpdate(config, args) {
 const cmd = process.argv[2];
 const sub = process.argv[3];
 
-if (cmd === 'meta' && sub === 'add') {
+if (cmd === 'meta' && sub === 'all') {
+  const config = loadConfig();
+  cmdMetaAll(config).catch((err) => {
+    console.error(`Error: ${err.message}`);
+    process.exit(1);
+  });
+} else if (cmd === 'meta' && sub === 'add') {
   const config = loadConfig();
   cmdMetaAdd(config, process.argv.slice(4)).catch((err) => {
     console.error(`Error: ${err.message}`);
@@ -213,6 +253,7 @@ if (cmd === 'meta' && sub === 'add') {
   console.log('');
   console.log('Commands:');
   console.log('  meta             List meta ideas for the current git project');
+  console.log('  meta all         List all meta ideas across all projects');
   console.log('  meta add         Create a new meta idea for the current git project');
   console.log('  meta update <id> Update a meta idea (--title, --priority, --status, --summary)');
 }
