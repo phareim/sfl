@@ -72,11 +72,14 @@ struct IdeasListView: View {
 
     var body: some View {
         NavigationStack {
-            Group {
-                if let error = vm.error {
-                    errorView(error)
-                } else {
-                    listContent
+            VStack(spacing: 0) {
+                topBar
+                Group {
+                    if let error = vm.error {
+                        errorView(error)
+                    } else {
+                        listContent
+                    }
                 }
             }
             .background(Color.sflBg)
@@ -110,9 +113,6 @@ struct IdeasListView: View {
                         }
                     }
                 }
-            }
-            .safeAreaInset(edge: .top) {
-                topBar
             }
             .onChange(of: searchText) { _, q in
                 searchDebounce?.cancel()
