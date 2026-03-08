@@ -79,7 +79,7 @@ function priorityRank(p) {
 async function cmdMeta(config) {
   const projectUrl = getProjectUrl();
 
-  const ideas = await api(config, `/api/ideas?type=meta&project=${encodeURIComponent(projectUrl)}`);
+  const { ideas } = await api(config, `/api/ideas?type=meta&project=${encodeURIComponent(projectUrl)}`);
   if (!ideas.length) {
     console.log(`No meta ideas for ${projectUrl}`);
     return;
@@ -104,7 +104,7 @@ async function cmdMeta(config) {
   for (const idea of full) {
     const pri = (idea.data?.priority ?? '-').padEnd(priW);
     const status = (idea.data?.status ?? '-').padEnd(statusW);
-    console.log(`  ${pri} ${status} ${idea.title}`);
+    console.log(`  ${pri} ${status} ${idea.idea.title}`);
   }
   console.log();
 }
@@ -112,7 +112,7 @@ async function cmdMeta(config) {
 // --- meta all command ---
 
 async function cmdMetaAll(config) {
-  const ideas = await api(config, `/api/ideas?type=meta`);
+  const { ideas } = await api(config, `/api/ideas?type=meta`);
   if (!ideas.length) {
     console.log('No meta ideas found.');
     return;
@@ -138,7 +138,7 @@ async function cmdMetaAll(config) {
     const status = (idea.data?.status ?? '-').padEnd(statusW);
     const rawProj = idea.data?.project ?? '-';
     const proj = rawProj.replace(/^https?:\/\//, '').padEnd(projW);
-    console.log(`  ${pri} ${status} ${proj} ${idea.title}`);
+    console.log(`  ${pri} ${status} ${proj} ${idea.idea.title}`);
   }
   console.log();
 }
