@@ -38,7 +38,7 @@ struct SettingsView: View {
             Text("SFL")
                 .font(.system(size: 48, weight: .black))
                 .foregroundStyle(Color.sflAccent)
-            Text("Save For Later")
+            Text("Sleeper For Life")
                 .font(.sflHeading)
                 .foregroundStyle(Color.sflMuted)
             Text("Connect to your API to get started.")

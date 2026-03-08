@@ -162,6 +162,25 @@ struct IdeasResponse: Codable {
     }
 }
 
+// MARK: - Message (chat)
+
+struct Message: Codable, Identifiable {
+    let id: String
+    let body: String
+    let sender: String   // "user" | "sleeper"
+    let createdAt: Int
+
+    enum CodingKeys: String, CodingKey {
+        case id, body, sender
+        case createdAt = "created_at"
+    }
+}
+
+struct MessagesResponse: Codable {
+    let messages: [Message]
+    let nextCursor: Int?
+}
+
 struct CreateIdeaBody: Codable {
     let type: String
     let title: String?

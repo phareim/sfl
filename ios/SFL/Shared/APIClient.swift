@@ -168,6 +168,19 @@ final class APIClient {
         return response.items
     }
 
+    func listMessages(cursor: Int? = nil) async throws -> MessagesResponse {
+        var path = "/api/messages?limit=50"
+        if let c = cursor { path += "&cursor=\(c)" }
+        return try await get(path)
+    }
+
+    func sendMessage(body: String) async throws -> Message {
+        struct Body: Encodable { let body: String }
+        struct Resp: Decodable { let message: Message }
+        let resp: Resp = try await post("/api/messages", body: Body(body: body))
+        return resp.message
+    }
+
     func createConnection(fromId: String, toId: String, label: String) async throws {
         struct Body: Encodable { let from_id: String; let to_id: String; let label: String }
         struct Response: Decodable { let connection: Min; struct Min: Decodable { let id: String } }

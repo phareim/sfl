@@ -1,4 +1,4 @@
-# SFL — Save For Later
+# SFL — Sleeper For Life
 
 Personal idea-capture tool. Everything becomes an **idea** — web pages, quotes, images, tweets, books, notes, conversations. Ideas connect to each other as a graph, support annotations, and tags are themselves ideas.
 

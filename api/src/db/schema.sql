@@ -65,6 +65,14 @@ CREATE TABLE IF NOT EXISTS oauth_tokens (
   created_at INTEGER NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS messages (
+  id         TEXT PRIMARY KEY,
+  body       TEXT NOT NULL,
+  sender     TEXT NOT NULL,
+  created_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_messages_created ON messages(created_at DESC);
+
 CREATE VIRTUAL TABLE IF NOT EXISTS ideas_fts USING fts5(
   title, summary, content=ideas, content_rowid=rowid
 );

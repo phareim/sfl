@@ -2,7 +2,7 @@
 
 ## Project overview
 
-Personal idea-capture tool. Everything becomes an **idea** — web pages, quotes, images, tweets, books, notes. Ideas connect to each other as a graph. Tags are themselves ideas; tagging is a graph edge.
+Sleeper For Life — personal idea-capture tool. Everything becomes an **idea** — web pages, quotes, images, tweets, books, notes. Ideas connect to each other as a graph. Tags are themselves ideas; tagging is a graph edge.
 
 Deploys entirely to Cloudflare (Worker + Pages + D1 + R2). Single-user. Push to `master` → auto-deploy to production via GitHub Actions.
 

@@ -249,6 +249,84 @@ async function cmdMetaUpdate(config, args) {
   }
 }
 
+// --- ideas command ---
+
+async function cmdIdeas(config, args = []) {
+  const { flags } = parseArgs(args);
+  const limit = flags.limit ?? '20';
+  const type = flags.type;
+  const tag = flags.tag;
+  const cursor = flags.cursor;
+  const statusFilter = flags.status;
+
+  let path = `/api/ideas?limit=${limit}`;
+  if (type) path += `&type=${encodeURIComponent(type)}`;
+  if (tag) path += `&tag=${encodeURIComponent(tag)}`;
+  if (cursor) path += `&cursor=${encodeURIComponent(cursor)}`;
+
+  const { ideas } = await api(config, path);
+  if (!ideas.length) {
+    console.log('No ideas found.');
+    return;
+  }
+
+  let filtered = ideas;
+  if (statusFilter) {
+    filtered = ideas.filter((idea) => idea.status === statusFilter);
+  }
+
+  console.log('\nIdeas\n');
+  const idW = 9;
+  const typeW = 10;
+  console.log(`  ${'ID'.padEnd(idW)} ${'TYPE'.padEnd(typeW)} TITLE`);
+
+  if (!filtered.length) {
+    console.log('  (none)');
+  } else {
+    for (const idea of filtered) {
+      const id = idea.id.slice(0, 8).padEnd(idW);
+      const t = (idea.type ?? '-').padEnd(typeW);
+      const title = idea.title ?? idea.url ?? '(untitled)';
+      console.log(`  ${id} ${t} ${title}`);
+    }
+  }
+  console.log();
+}
+
+async function cmdIdeasSearch(config, args = []) {
+  const { flags, positional } = parseArgs(args);
+  const query = positional.join(' ');
+  if (!query) {
+    console.error('Usage: sfl ideas search <query> [--type TYPE] [--limit N]');
+    process.exit(1);
+  }
+
+  const limit = flags.limit ?? '20';
+  const type = flags.type;
+
+  let path = `/api/ideas/search?q=${encodeURIComponent(query)}&limit=${limit}`;
+  if (type) path += `&type=${encodeURIComponent(type)}`;
+
+  const { ideas } = await api(config, path);
+  if (!ideas.length) {
+    console.log(`No results for "${query}".`);
+    return;
+  }
+
+  console.log(`\nSearch: "${query}"\n`);
+  const idW = 9;
+  const typeW = 10;
+  console.log(`  ${'ID'.padEnd(idW)} ${'TYPE'.padEnd(typeW)} TITLE`);
+
+  for (const idea of ideas) {
+    const id = idea.id.slice(0, 8).padEnd(idW);
+    const t = (idea.type ?? '-').padEnd(typeW);
+    const title = idea.title ?? idea.url ?? '(untitled)';
+    console.log(`  ${id} ${t} ${title}`);
+  }
+  console.log();
+}
+
 // --- Dispatch ---
 
 const cmd = process.argv[2];
@@ -278,6 +356,18 @@ if (cmd === 'meta' && sub === 'all') {
     console.error(`Error: ${err.message}`);
     process.exit(1);
   });
+} else if (cmd === 'ideas' && sub === 'search') {
+  const config = loadConfig();
+  cmdIdeasSearch(config, process.argv.slice(4)).catch((err) => {
+    console.error(`Error: ${err.message}`);
+    process.exit(1);
+  });
+} else if (cmd === 'ideas') {
+  const config = loadConfig();
+  cmdIdeas(config, process.argv.slice(3)).catch((err) => {
+    console.error(`Error: ${err.message}`);
+    process.exit(1);
+  });
 } else {
   console.log('Usage: sfl <command>');
   console.log('');
@@ -286,4 +376,6 @@ if (cmd === 'meta' && sub === 'all') {
   console.log('  meta all         List all meta ideas across all projects');
   console.log('  meta add         Create a new meta idea for the current git project');
   console.log('  meta update <id> Update a meta idea (--title, --priority, --status, --summary)');
+  console.log('  ideas            List ideas [--type TYPE] [--tag TAG] [--limit N] [--status STATUS] [--cursor TS]');
+  console.log('  ideas search <q> Full-text search [--type TYPE] [--limit N]');
 }
