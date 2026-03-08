@@ -66,14 +66,13 @@ struct IdeasListView: View {
     @State private var showSearch = false
     @State private var showSettings = false
     @State private var showQuickNote = false
-    @State private var showFilter = false
-
-    private let types = ["all"] + IdeaType.allCases.map(\.rawValue)
 
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                topBar
+                if showSearch {
+                    searchBar
+                }
                 Group {
                     if let error = vm.error {
                         errorView(error)
@@ -103,9 +102,12 @@ struct IdeasListView: View {
                             Image(systemName: "magnifyingglass")
                                 .foregroundStyle(showSearch ? Color.sflAccent : Color.sflMuted)
                         }
-                        Button {
-                            withAnimation(.easeInOut(duration: 0.15)) {
-                                showFilter.toggle()
+                        Menu {
+                            Picker("Filter", selection: $selectedType) {
+                                Text("All").tag("all")
+                                ForEach(IdeaType.allCases, id: \.rawValue) { t in
+                                    Label(t.label, systemImage: "circle.fill").tag(t.rawValue)
+                                }
                             }
                         } label: {
                             Image(systemName: selectedType == "all" ? "line.3.horizontal.decrease.circle" : "line.3.horizontal.decrease.circle.fill")
@@ -146,51 +148,30 @@ struct IdeasListView: View {
         }
     }
 
-    // MARK: - Top bar
+    // MARK: - Search bar
 
-    @ViewBuilder
-    private var topBar: some View {
+    private var searchBar: some View {
         VStack(spacing: 0) {
-            if showSearch {
-                HStack(spacing: 10) {
-                    Image(systemName: "magnifyingglass")
-                        .foregroundStyle(Color.sflMuted)
-                        .font(.system(size: 14))
-                    TextField("Search ideas…", text: $searchText)
-                        .font(.sflBody)
-                        .foregroundStyle(Color.sflText)
-                        .autocorrectionDisabled()
-                        .textInputAutocapitalization(.never)
-                    if !searchText.isEmpty {
-                        Button { searchText = "" } label: {
-                            Image(systemName: "xmark.circle.fill")
-                                .foregroundStyle(Color.sflMuted)
-                        }
+            HStack(spacing: 10) {
+                Image(systemName: "magnifyingglass")
+                    .foregroundStyle(Color.sflMuted)
+                    .font(.system(size: 14))
+                TextField("Search ideas…", text: $searchText)
+                    .font(.sflBody)
+                    .foregroundStyle(Color.sflText)
+                    .autocorrectionDisabled()
+                    .textInputAutocapitalization(.never)
+                if !searchText.isEmpty {
+                    Button { searchText = "" } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundStyle(Color.sflMuted)
                     }
                 }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 10)
-                .background(Color.sflBg)
             }
-
-            if showFilter {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 8) {
-                        ForEach(types, id: \.self) { t in
-                            TypeChip(type: t, selected: selectedType == t) {
-                                selectedType = t
-                            }
-                        }
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 8)
-                }
-                .background(Color.sflBg)
-            }
-
-            if showSearch || showFilter {
-                Rectangle().fill(Color.sflStroke).frame(height: 1)
-            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+            .background(Color.sflBg)
+            Rectangle().fill(Color.sflStroke).frame(height: 1)
         }
     }
 
