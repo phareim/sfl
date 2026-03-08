@@ -28,7 +28,7 @@ messages.get('/', async (c) => {
   return c.json({ messages: rows, nextCursor });
 });
 
-// POST /api/messages — store user message, fire-and-forget AI reply
+// POST /api/messages — store user message, fire-and-forget AI reply or webhook
 messages.post('/', async (c) => {
   let body;
   try {
@@ -37,8 +37,19 @@ messages.post('/', async (c) => {
     return badRequest('Invalid JSON');
   }
 
-  const { body: msgBody } = body;
+  const { body: msgBody, sender } = body;
   if (!msgBody?.trim()) return badRequest('body is required');
+
+  // Allow "sleeper" sender to post replies without triggering webhooks/AI
+  if (sender === 'sleeper') {
+    const id = generateId();
+    const now = Date.now();
+    await c.env.DB
+      .prepare('INSERT INTO messages (id, body, sender, created_at) VALUES (?, ?, ?, ?)')
+      .bind(id, msgBody.trim(), 'sleeper', now)
+      .run();
+    return c.json({ message: { id, body: msgBody.trim(), sender: 'sleeper', created_at: now } }, 201);
+  }
 
   const id = generateId();
   const now = Date.now();
@@ -49,10 +60,29 @@ messages.post('/', async (c) => {
 
   const message = { id, body: msgBody.trim(), sender: 'user', created_at: now };
 
-  c.executionCtx.waitUntil(generateReply(c.env, msgBody.trim()));
+  if (c.env.WEBHOOK_URL) {
+    c.executionCtx.waitUntil(fireWebhook(c.env, message));
+  } else {
+    c.executionCtx.waitUntil(generateReply(c.env, msgBody.trim()));
+  }
 
   return c.json({ message }, 201);
 });
+
+async function fireWebhook(env, message) {
+  try {
+    await fetch(env.WEBHOOK_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-SFL-Secret': env.WEBHOOK_SECRET ?? '',
+      },
+      body: JSON.stringify(message),
+    });
+  } catch {
+    // Best-effort: never surface webhook errors
+  }
+}
 
 async function generateReply(env, userMessage) {
   try {
