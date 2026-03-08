@@ -76,7 +76,10 @@ function priorityRank(p) {
   return i === -1 ? PRIORITY_ORDER.length : i;
 }
 
-async function cmdMeta(config) {
+async function cmdMeta(config, args = []) {
+  const { flags } = parseArgs(args);
+  const statusFilter = flags.status;
+
   const projectUrl = getProjectUrl();
 
   const { ideas } = await api(config, `/api/ideas?type=meta&project=${encodeURIComponent(projectUrl)}`);
@@ -86,7 +89,15 @@ async function cmdMeta(config) {
   }
 
   // Fetch full data for each idea in parallel
-  const full = await Promise.all(ideas.map((idea) => api(config, `/api/ideas/${idea.id}`)));
+  let full = await Promise.all(ideas.map((idea) => api(config, `/api/ideas/${idea.id}`)));
+
+  if (statusFilter === 'all') {
+    // no filter
+  } else if (statusFilter) {
+    full = full.filter((idea) => idea.data?.status === statusFilter);
+  } else {
+    full = full.filter((idea) => idea.data?.status !== 'done');
+  }
 
   full.sort((a, b) => {
     const pa = priorityRank(a.data?.priority);
@@ -101,24 +112,39 @@ async function cmdMeta(config) {
   const statusW = 14;
   console.log(`  ${'PRI'.padEnd(priW)} ${'STATUS'.padEnd(statusW)} TITLE`);
 
-  for (const idea of full) {
-    const pri = (idea.data?.priority ?? '-').padEnd(priW);
-    const status = (idea.data?.status ?? '-').padEnd(statusW);
-    console.log(`  ${pri} ${status} ${idea.idea.title}`);
+  if (!full.length) {
+    console.log('  (none)');
+  } else {
+    for (const idea of full) {
+      const pri = (idea.data?.priority ?? '-').padEnd(priW);
+      const status = (idea.data?.status ?? '-').padEnd(statusW);
+      console.log(`  ${pri} ${status} ${idea.idea.title}`);
+    }
   }
   console.log();
 }
 
 // --- meta all command ---
 
-async function cmdMetaAll(config) {
+async function cmdMetaAll(config, args = []) {
+  const { flags } = parseArgs(args);
+  const statusFilter = flags.status;
+
   const { ideas } = await api(config, `/api/ideas?type=meta`);
   if (!ideas.length) {
     console.log('No meta ideas found.');
     return;
   }
 
-  const full = await Promise.all(ideas.map((idea) => api(config, `/api/ideas/${idea.id}`)));
+  let full = await Promise.all(ideas.map((idea) => api(config, `/api/ideas/${idea.id}`)));
+
+  if (statusFilter === 'all') {
+    // no filter
+  } else if (statusFilter) {
+    full = full.filter((idea) => idea.data?.status === statusFilter);
+  } else {
+    full = full.filter((idea) => idea.data?.status !== 'done');
+  }
 
   full.sort((a, b) => {
     const pa = (a.data?.project ?? '').localeCompare(b.data?.project ?? '');
@@ -133,12 +159,16 @@ async function cmdMetaAll(config) {
   const projW = 30;
   console.log(`  ${'PRI'.padEnd(priW)} ${'STATUS'.padEnd(statusW)} ${'PROJECT'.padEnd(projW)} TITLE`);
 
-  for (const idea of full) {
-    const pri = (idea.data?.priority ?? '-').padEnd(priW);
-    const status = (idea.data?.status ?? '-').padEnd(statusW);
-    const rawProj = idea.data?.project ?? '-';
-    const proj = rawProj.replace(/^https?:\/\//, '').padEnd(projW);
-    console.log(`  ${pri} ${status} ${proj} ${idea.idea.title}`);
+  if (!full.length) {
+    console.log('  (none)');
+  } else {
+    for (const idea of full) {
+      const pri = (idea.data?.priority ?? '-').padEnd(priW);
+      const status = (idea.data?.status ?? '-').padEnd(statusW);
+      const rawProj = idea.data?.project ?? '-';
+      const proj = rawProj.replace(/^https?:\/\//, '').padEnd(projW);
+      console.log(`  ${pri} ${status} ${proj} ${idea.idea.title}`);
+    }
   }
   console.log();
 }
@@ -226,7 +256,7 @@ const sub = process.argv[3];
 
 if (cmd === 'meta' && sub === 'all') {
   const config = loadConfig();
-  cmdMetaAll(config).catch((err) => {
+  cmdMetaAll(config, process.argv.slice(4)).catch((err) => {
     console.error(`Error: ${err.message}`);
     process.exit(1);
   });
@@ -244,7 +274,7 @@ if (cmd === 'meta' && sub === 'all') {
   });
 } else if (cmd === 'meta') {
   const config = loadConfig();
-  cmdMeta(config).catch((err) => {
+  cmdMeta(config, process.argv.slice(3)).catch((err) => {
     console.error(`Error: ${err.message}`);
     process.exit(1);
   });
