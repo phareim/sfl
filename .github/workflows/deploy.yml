@@ -15,23 +15,26 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: npm
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: latest
 
       - name: Install dependencies
-        run: npm ci
+        run: pnpm install
 
       - name: Deploy Worker
         working-directory: api
-        run: npx wrangler deploy
+        run: pnpm exec wrangler deploy
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
 
       - name: Build web app
         working-directory: web
-        run: npm run build
+        run: pnpm build
 
       - name: Deploy web app to Pages
         working-directory: web
-        run: npx wrangler pages deploy build --project-name sfl-web --branch master
+        run: pnpm exec wrangler pages deploy build --project-name sfl-web --branch master
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
