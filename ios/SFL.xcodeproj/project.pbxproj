@@ -17,6 +17,7 @@
 		AA110000000000000000032A /* IdeaDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA110000000000000000017A /* IdeaDetailView.swift */; };
 		AA110000000000000000033A /* IdeasListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA110000000000000000018A /* IdeasListView.swift */; };
 		AA110000000000000000034A /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA110000000000000000019A /* SettingsView.swift */; };
+		AA110000000000000000064A /* ChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA110000000000000000065A /* ChatView.swift */; };
 		AA110000000000000000063A /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = AA110000000000000000062A /* Assets.xcassets */; };
 		AA110000000000000000035A /* SFLShareExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = AA110000000000000000009A /* SFLShareExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		AA110000000000000000036A /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA110000000000000000020A /* ShareViewController.swift */; };
@@ -70,6 +71,7 @@
 		AA110000000000000000023A /* SFLShareExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = SFLShareExtension.entitlements; sourceTree = "<group>"; };
 		AA110000000000000000024A /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		AA110000000000000000062A /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		AA110000000000000000065A /* ChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -139,6 +141,7 @@
 				AA110000000000000000017A /* IdeaDetailView.swift */,
 				AA110000000000000000018A /* IdeasListView.swift */,
 				AA110000000000000000019A /* SettingsView.swift */,
+				AA110000000000000000065A /* ChatView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -263,6 +266,7 @@
 				AA110000000000000000032A /* IdeaDetailView.swift in Sources */,
 				AA110000000000000000033A /* IdeasListView.swift in Sources */,
 				AA110000000000000000034A /* SettingsView.swift in Sources */,
+				AA110000000000000000064A /* ChatView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

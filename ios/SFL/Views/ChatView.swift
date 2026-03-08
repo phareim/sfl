@@ -69,6 +69,7 @@ struct ChatView: View {
     @EnvironmentObject var settings: Settings
     @StateObject private var vm = ChatViewModel()
     @State private var inputText = ""
+    var onClose: (() -> Void)?
 
     var body: some View {
         NavigationStack {
@@ -78,6 +79,15 @@ struct ChatView: View {
                 chatContent
                     .navigationTitle("Chat")
                     .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .navigationBarLeading) {
+                            Button {
+                                onClose?()
+                            } label: {
+                                Image(systemName: "xmark")
+                            }
+                        }
+                    }
                     .onAppear {
                         vm.load()
                         vm.startPolling()

@@ -66,6 +66,7 @@ struct IdeasListView: View {
     @State private var showSearch = false
     @State private var showSettings = false
     @State private var showQuickNote = false
+    @State private var showFilter = false
 
     private let types = ["all"] + IdeaType.allCases.map(\.rawValue)
 
@@ -79,6 +80,7 @@ struct IdeasListView: View {
                 }
             }
             .background(Color.sflBg)
+            .navigationTitle("Ideas")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
@@ -88,22 +90,29 @@ struct IdeasListView: View {
                             .foregroundStyle(Color.sflAccent)
                     }
                 }
-                ToolbarItem(placement: .principal) {
-                    Image("icon")
-                        .resizable()
-                        .scaledToFit()
-                        .frame(height: 28)
-                        .clipShape(RoundedRectangle(cornerRadius: 6))
-                }
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button { showSettings = true } label: {
-                        Image(systemName: "gearshape")
-                            .foregroundStyle(Color.sflMuted)
+                    HStack(spacing: 12) {
+                        Button {
+                            withAnimation(.easeInOut(duration: 0.15)) {
+                                showSearch.toggle()
+                            }
+                        } label: {
+                            Image(systemName: "magnifyingglass")
+                                .foregroundStyle(showSearch ? Color.sflAccent : Color.sflMuted)
+                        }
+                        Button {
+                            withAnimation(.easeInOut(duration: 0.15)) {
+                                showFilter.toggle()
+                            }
+                        } label: {
+                            Image(systemName: selectedType == "all" ? "line.3.horizontal.decrease.circle" : "line.3.horizontal.decrease.circle.fill")
+                                .foregroundStyle(selectedType == "all" ? Color.sflMuted : Color.sflAccent)
+                        }
                     }
                 }
             }
-            .safeAreaInset(edge: .bottom) {
-                bottomBar
+            .safeAreaInset(edge: .top) {
+                topBar
             }
             .onChange(of: searchText) { _, q in
                 searchDebounce?.cancel()
@@ -137,9 +146,10 @@ struct IdeasListView: View {
         }
     }
 
-    // MARK: - Bottom bar
+    // MARK: - Top bar
 
-    private var bottomBar: some View {
+    @ViewBuilder
+    private var topBar: some View {
         VStack(spacing: 0) {
             if showSearch {
                 HStack(spacing: 10) {
@@ -160,45 +170,27 @@ struct IdeasListView: View {
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 10)
-                .background(Color.sflSurface)
-                .overlay(alignment: .top) {
-                    Rectangle().fill(Color.sflStroke).frame(height: 1)
-                }
+                .background(Color.sflBg)
             }
 
-            Rectangle().fill(Color.sflStroke).frame(height: 1)
-
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    ForEach(types, id: \.self) { t in
-                        TypeChip(type: t, selected: selectedType == t) {
-                            selectedType = t
+            if showFilter {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(types, id: \.self) { t in
+                            TypeChip(type: t, selected: selectedType == t) {
+                                selectedType = t
+                            }
                         }
                     }
-
-                    Button {
-                        withAnimation(.easeInOut(duration: 0.15)) {
-                            showSearch.toggle()
-                        }
-                    } label: {
-                        Image(systemName: "magnifyingglass")
-                            .font(.system(size: 13, weight: .medium))
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 6)
-                            .background(showSearch ? Color.sflAccent : Color.sflSurface)
-                            .foregroundStyle(showSearch ? Color.sflInk : Color.sflMuted)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 4)
-                                    .strokeBorder(showSearch ? Color.clear : Color.sflStroke, lineWidth: 1)
-                            )
-                            .clipShape(RoundedRectangle(cornerRadius: 4))
-                    }
-                    .buttonStyle(.plain)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
                 }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 10)
+                .background(Color.sflBg)
             }
-            .background(Color.sflBg)
+
+            if showSearch || showFilter {
+                Rectangle().fill(Color.sflStroke).frame(height: 1)
+            }
         }
     }
 
