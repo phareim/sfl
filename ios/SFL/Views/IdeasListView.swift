@@ -106,7 +106,7 @@ struct IdeasListView: View {
                             Picker("Filter", selection: $selectedType) {
                                 Text("All").tag("all")
                                 ForEach(IdeaType.allCases, id: \.rawValue) { t in
-                                    Label(t.label, systemImage: "circle.fill").tag(t.rawValue)
+                                    Label { Text(t.label) } icon: { Text(t.icon) }.tag(t.rawValue)
                                 }
                             }
                         } label: {
