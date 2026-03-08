@@ -23,6 +23,8 @@ Deploys entirely to **Cloudflare** (Worker + Pages + D1 + R2). Single-user, Java
 - **Chrome extension** — right-click context menus, popup quick-capture, options page
 - **Claude / MCP** — remote MCP server with OAuth so Claude (Code or web) can capture and query ideas directly
 - **AI enrichment** — on every new idea, Workers AI (`llama-3.1-8b-instruct`) auto-applies relevant tags, finds related ideas (surfaced as `related_to` connections), and reformats `data.text` into structured Markdown. Manual re-run available via buttons in the web and iOS detail views
+- **Chat / Messages** — persistent chat thread backed by D1; AI replies via Workers AI or forwarded to an external webhook
+- **Deduplication** — capturing a URL that already exists returns the existing idea instead of creating a duplicate
 
 ---
 
@@ -31,13 +33,15 @@ Deploys entirely to **Cloudflare** (Worker + Pages + D1 + R2). Single-user, Java
 | Layer | Tech | What it does |
 |---|---|---|
 | API | Cloudflare Worker + Hono.js | REST API, Bearer auth, D1 + R2 glue |
-| Database | D1 (SQLite) | Queryable metadata, FTS5 search, OAuth state |
+| Database | D1 (SQLite) | Queryable metadata, FTS5 search, OAuth state, messages |
 | Storage | R2 | Per-type JSON blobs + media binaries |
 | Web | SvelteKit (static) + Cloudflare Pages | UI: list, detail, graph, tags, settings |
 | Extension | Chrome MV3 | Context menus, popup, social detection |
-| iOS | SwiftUI + Share Extension | Native capture from any app |
+| iOS | SwiftUI + Share Extension | Native capture + chat from any app |
+| macOS | Swift menu bar app | Global hotkey capture (⌃⌥I), text grabber |
+| CLI | Node.js (`sfl`) | Browse/search ideas, manage meta tasks from the terminal |
 | MCP | Streamable HTTP + OAuth 2.0 | Claude Code and Claude.ai connector |
-| AI | Workers AI (`llama-3.1-8b-instruct`) | Auto-tagging, related ideas, markdown formatting |
+| AI | Workers AI (`llama-3.1-8b-instruct`) | Auto-tagging, related ideas, markdown formatting, chat replies |
 | Graph | Sigma.js + Graphology | WebGL rendering, ForceAtlas2 layout |
 | CI/CD | GitHub Actions | Deploy on push to master |
 
@@ -66,9 +70,35 @@ Any idea with a `text` field may also have **`markdown: true`** in its blob, set
 
 ---
 
+## macOS app
+
+Native Swift menu bar app (macOS 13+) for capturing ideas without switching windows.
+
+### Features
+
+- **Global hotkey** — press `⌃⌥I` anywhere to open the capture panel
+- **Text grabber** — automatically grabs selected text from the frontmost app
+- **Type picker** — choose idea type (page, quote, note, image, meta, …)
+- **Tag picker** — tag inline during capture
+- **Project picker** — for `meta` type, select a project from your configured repos
+
+### Setup
+
+```bash
+cd macos
+./build.sh
+# Then drag "build/SFL Capture.app" to /Applications
+```
+
+First launch: grant Accessibility permission when prompted (required for text grabbing and the global hotkey).
+
+Open the app from the menu bar → ⚙ Settings → enter your Worker URL and API key.
+
+---
+
 ## iOS app
 
-Native SwiftUI app (iOS 16+) with a Share Extension for capturing from any app.
+Native SwiftUI app (iOS 16+) with a Share Extension for capturing from any app, plus a **Chat tab** to converse with Sleeper.
 
 ### Install
 
@@ -164,6 +194,64 @@ Opening any of these URLs and saving (popup or right-click) automatically sets `
 
 1. `chrome://extensions` → enable **Developer mode** → **Load unpacked** → select `chrome-extension/`
 2. Click ⚙ on the extension → enter your Worker URL and API key
+
+---
+
+## CLI
+
+The `sfl` CLI lets you browse and manage ideas from the terminal. It is the canonical tool for the `meta` workflow (project planning and task tracking).
+
+### Install
+
+```bash
+cd cli
+npm link   # or: npm install -g .
+```
+
+Configure by setting env vars or creating `~/.config/sfl/config.json`:
+
+```json
+{ "SFL_API_URL": "https://sfl-api.aiwdm.workers.dev", "SFL_API_KEY": "<your-api-key>" }
+```
+
+### Commands
+
+```bash
+sfl meta                        # list meta (planning) ideas for current git project
+sfl meta all                    # list all meta ideas across all projects
+sfl meta add "Task title"       # create a new meta idea (--priority A|B|C|D, --summary TEXT)
+sfl meta update <id>            # update a meta idea (--title, --priority, --status, --summary)
+
+sfl ideas                       # list ideas (--type TYPE, --tag TAG, --limit N, --status STATUS)
+sfl ideas search <query>        # full-text search (--type TYPE, --limit N)
+```
+
+`meta` ideas have a `status` lifecycle: `draft` → `in_progress` → `done`.
+
+---
+
+## Chat / Messages
+
+A simple persistent chat thread, accessible from the iOS app and the API. Each user message triggers either an AI reply (Workers AI) or a forwarded webhook call if `WEBHOOK_URL` is configured.
+
+### API
+
+```
+GET  /api/messages              list messages (?limit=50&cursor=<timestamp>)
+POST /api/messages              send a message { body }
+POST /api/messages              post a Sleeper reply { body, sender: "sleeper" }
+```
+
+### Webhook mode
+
+Set the `WEBHOOK_URL` Cloudflare secret to forward every user message as a `POST` JSON payload to an external service (e.g. Claude Code, n8n, a home automation hook). The request includes `X-SFL-Secret` for verification.
+
+```bash
+npx wrangler secret put WEBHOOK_URL
+npx wrangler secret put WEBHOOK_SECRET   # optional, for request verification
+```
+
+When `WEBHOOK_URL` is set, the Worker skips the built-in AI reply and delegates to the external service, which can post replies back via `POST /api/messages` with `{ sender: "sleeper" }`.
 
 ---
 
