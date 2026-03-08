@@ -35,6 +35,6 @@ jobs:
 
       - name: Deploy web app to Pages
         working-directory: web
-        run: pnpm exec wrangler pages deploy build --project-name sfl-web --branch master
+        run: npx wrangler pages deploy build --project-name sfl-web --branch master
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
