@@ -2,11 +2,7 @@
 
 Personal idea-capture tool. Everything becomes an **idea** — web pages, quotes, images, tweets, books, notes, conversations. Ideas connect to each other as a graph, support annotations, and tags are themselves ideas.
 
-Deploys entirely to **Cloudflare** (Worker + Pages + D1 + R2). Single-user, JavaScript. Pushes to `master` deploy automatically via GitHub Actions.
-
-**Live:**
-- Web app: https://sfl-web.pages.dev
-- API: https://sfl-api.aiwdm.workers.dev
+API runs on **Ubuntu/Node.js**. Web deploys to **Cloudflare Pages**. Storage on **Cloudflare R2**. Single-user, JavaScript. Pushes to `master` auto-deploy the web app via GitHub Actions.
 
 ---
 
@@ -22,8 +18,8 @@ Deploys entirely to **Cloudflare** (Worker + Pages + D1 + R2). Single-user, Java
 - **Media gallery** — attach files to any idea; served directly from R2
 - **Chrome extension** — right-click context menus, popup quick-capture, options page
 - **Claude / MCP** — remote MCP server with OAuth so Claude (Code or web) can capture and query ideas directly
-- **AI enrichment** — on every new idea, Workers AI (`llama-3.1-8b-instruct`) auto-applies relevant tags, finds related ideas (surfaced as `related_to` connections), and reformats `data.text` into structured Markdown. Manual re-run available via buttons in the web and iOS detail views
-- **Chat / Messages** — persistent chat thread backed by D1; AI replies via Workers AI or forwarded to an external webhook
+- **AI enrichment** — on every new idea, Claude haiku auto-applies relevant tags, finds related ideas (surfaced as `related_to` connections), and reformats `data.text` into structured Markdown. Manual re-run available via buttons in the web and iOS detail views
+- **Chat / Messages** — persistent chat thread backed by SQLite; AI replies via Claude haiku or forwarded to an external webhook
 - **Deduplication** — capturing a URL that already exists returns the existing idea instead of creating a duplicate
 
 ---
@@ -32,20 +28,20 @@ Deploys entirely to **Cloudflare** (Worker + Pages + D1 + R2). Single-user, Java
 
 | Layer | Tech | What it does |
 |---|---|---|
-| API | Cloudflare Worker + Hono.js | REST API, Bearer auth, D1 + R2 glue |
-| Database | D1 (SQLite) | Queryable metadata, FTS5 search, OAuth state, messages |
-| Storage | R2 | Per-type JSON blobs + media binaries |
+| API | Node.js + Hono.js (`@hono/node-server`) | REST API, Bearer auth, SQLite + R2 glue |
+| Database | SQLite (`better-sqlite3`) | Queryable metadata, FTS5 search, OAuth state, messages |
+| Storage | Cloudflare R2 | Per-type JSON blobs + media binaries |
 | Web | SvelteKit (static) + Cloudflare Pages | UI: list, detail, graph, tags, settings |
 | Extension | Chrome MV3 | Context menus, popup, social detection |
 | iOS | SwiftUI + Share Extension | Native capture + chat from any app |
 | macOS | Swift menu bar app | Global hotkey capture (⌃⌥I), text grabber |
 | CLI | Node.js (`sfl`) | Browse/search ideas, manage meta tasks from the terminal |
 | MCP | Streamable HTTP + OAuth 2.0 | Claude Code and Claude.ai connector |
-| AI | Workers AI (`llama-3.1-8b-instruct`) | Auto-tagging, related ideas, markdown formatting, chat replies |
+| AI | Anthropic Claude haiku | Auto-tagging, related ideas, markdown formatting, chat replies |
 | Graph | Sigma.js + Graphology | WebGL rendering, ForceAtlas2 layout |
-| CI/CD | GitHub Actions | Deploy on push to master |
+| CI/CD | GitHub Actions | Deploy web on push to master |
 
-**Key idea:** D1 holds only indexed metadata. All type-specific content lives as a JSON blob in R2 at `ideas/{id}/data.json` — no schema migrations needed as types evolve.
+**Key idea:** SQLite holds only indexed metadata. All type-specific content lives as a JSON blob in R2 at `ideas/{id}/data.json` — no schema migrations needed as types evolve.
 
 ---
 
@@ -92,7 +88,7 @@ cd macos
 
 First launch: grant Accessibility permission when prompted (required for text grabbing and the global hotkey).
 
-Open the app from the menu bar → ⚙ Settings → enter your Worker URL and API key.
+Open the app from the menu bar → ⚙ Settings → enter your API URL and key.
 
 ---
 
@@ -109,7 +105,7 @@ open ios/SFL.xcodeproj
 ```
 
 First launch: Settings → General → VPN & Device Management → Trust your cert.
-Then open the app → Settings tab → enter your Worker URL and API key.
+Then open the app → Settings tab → enter your API URL and key.
 
 ### Re-deploy from the command line
 
@@ -134,7 +130,7 @@ The Worker exposes a remote MCP server at `/mcp` (Streamable HTTP transport) so 
 ### Claude Code
 
 ```bash
-claude mcp add --transport http --scope user sfl https://sfl-api.aiwdm.workers.dev/mcp \
+claude mcp add --transport http --scope user sfl https://<your-api-host>/mcp \
   --header "Authorization: Bearer <your-api-key>"
 ```
 
@@ -145,10 +141,10 @@ Then ask Claude things like:
 
 ### Claude.ai web / mobile
 
-The Worker also runs an OAuth 2.0 server so Claude.ai can connect without exposing the raw API key.
+The API also runs an OAuth 2.0 server so Claude.ai can connect without exposing the raw API key.
 
 1. Go to **claude.ai/settings/connectors** → add custom connector
-2. URL: `https://sfl-api.aiwdm.workers.dev/mcp`
+2. URL: `https://<your-api-host>/mcp`
 3. Leave OAuth client ID/secret blank — Claude.ai auto-registers and redirects you to an approval page
 4. Enter your API key on the approval page to grant access
 
@@ -211,7 +207,7 @@ npm link   # or: npm install -g .
 Configure by setting env vars or creating `~/.config/sfl/config.json`:
 
 ```json
-{ "SFL_API_URL": "https://sfl-api.aiwdm.workers.dev", "SFL_API_KEY": "<your-api-key>" }
+{ "SFL_API_URL": "https://<your-api-host>", "SFL_API_KEY": "<your-api-key>" }
 ```
 
 ### Commands
@@ -232,7 +228,7 @@ sfl ideas search <query>        # full-text search (--type TYPE, --limit N)
 
 ## Chat / Messages
 
-A simple persistent chat thread, accessible from the iOS app and the API. Each user message triggers either an AI reply (Workers AI) or a forwarded webhook call if `WEBHOOK_URL` is configured.
+A simple persistent chat thread, accessible from the iOS app and the API. Each user message triggers either an AI reply (Claude haiku) or a forwarded webhook call if `WEBHOOK_URL` is configured.
 
 ### API
 
@@ -244,49 +240,42 @@ POST /api/messages              post a Sleeper reply { body, sender: "sleeper" }
 
 ### Webhook mode
 
-Set the `WEBHOOK_URL` Cloudflare secret to forward every user message as a `POST` JSON payload to an external service (e.g. Claude Code, n8n, a home automation hook). The request includes `X-SFL-Secret` for verification.
+Set the `WEBHOOK_URL` env var to forward every user message as a `POST` JSON payload to an external service (e.g. Claude Code, n8n, a home automation hook). The request includes `X-SFL-Secret` for verification.
 
-```bash
-npx wrangler secret put WEBHOOK_URL
-npx wrangler secret put WEBHOOK_SECRET   # optional, for request verification
-```
-
-When `WEBHOOK_URL` is set, the Worker skips the built-in AI reply and delegates to the external service, which can post replies back via `POST /api/messages` with `{ sender: "sleeper" }`.
+When `WEBHOOK_URL` is set, the API skips the built-in AI reply and delegates to the external service, which can post replies back via `POST /api/messages` with `{ sender: "sleeper" }`.
 
 ---
 
 ## First-time deployment
 
-### 1. Create Cloudflare resources
+### API (Ubuntu server)
 
 ```bash
-npx wrangler d1 create sfl-db
-# → paste the database_id into api/wrangler.toml
-
-npx wrangler r2 bucket create sfl-data
-```
-
-### 2. Initialize the database schema
-
-```bash
+# 1. Install Node.js 20+, then clone and install deps
 pnpm install
-cd api && npx wrangler d1 execute sfl-db --remote --file=src/db/schema.sql
+
+# 2. Create an R2 bucket (if you don't have one)
+npx wrangler r2 bucket create sfl-data
+
+# 3. Create a .env file (or export vars in your shell/systemd unit)
+cat > api/.env <<EOF
+API_KEY=$(openssl rand -hex 32)
+SQLITE_PATH=/data/sfl.db
+R2_ACCOUNT_ID=<cloudflare-account-id>
+R2_ACCESS_KEY_ID=<r2-access-key>
+R2_SECRET_ACCESS_KEY=<r2-secret-key>
+R2_BUCKET=sfl-data
+ANTHROPIC_API_KEY=<anthropic-key>
+PORT=8080
+EOF
+
+# 4. Start (schema is applied automatically on first run)
+cd api && node src/server.js
 ```
 
-### 3. Set the API key
+Use a process manager (systemd, PM2) and a reverse proxy (nginx, Caddy) in production.
 
-```bash
-npx wrangler secret put API_KEY
-# → any strong random string, e.g. openssl rand -hex 32
-```
-
-### 4. Deploy the Worker
-
-```bash
-cd api && npx wrangler deploy
-```
-
-### 5. Deploy the web app
+### Web app (Cloudflare Pages)
 
 ```bash
 cd web && pnpm build
@@ -294,16 +283,16 @@ npx wrangler pages project create sfl-web --production-branch master
 npx wrangler pages deploy build --project-name sfl-web
 ```
 
-Open the web app → **Settings** → enter your Worker URL and API key.
+Open the web app → **Settings** → enter your API URL and API key.
 
-### 6. CI/CD (GitHub Actions)
+### CI/CD for web (GitHub Actions)
 
 Add a `CLOUDFLARE_API_TOKEN` secret to your GitHub repo:
 
 1. [Create a token](https://dash.cloudflare.com/profile/api-tokens) using the **Edit Cloudflare Workers** template, plus **Cloudflare Pages: Edit** permission
 2. **GitHub repo → Settings → Secrets → Actions → New repository secret** → name: `CLOUDFLARE_API_TOKEN`
 
-After that, every push to `master` deploys both the Worker and Pages automatically.
+After that, every push to `master` deploys the Pages site automatically.
 
 ---
 
@@ -375,19 +364,28 @@ npm install -g pnpm
 # Install all dependencies
 pnpm install
 
+# Set required env vars (create api/.env or export in shell)
+export API_KEY=dev
+export SQLITE_PATH=/tmp/sfl-dev.db
+export R2_ACCOUNT_ID=...
+export R2_ACCESS_KEY_ID=...
+export R2_SECRET_ACCESS_KEY=...
+export R2_BUCKET=sfl-data
+export ANTHROPIC_API_KEY=...
+
 # Start API + web in parallel
 pnpm dev
 ```
 
-API runs on `http://localhost:8787`, web on `http://localhost:5173`.
+API runs on `http://localhost:8080`, web on `http://localhost:5173`.
 
-In the web app Settings, set API URL to `http://localhost:8787` and enter any string as the API key (local Wrangler doesn't enforce it by default — add `[vars] API_KEY = "dev"` to `wrangler.toml` for local auth).
+In the web app Settings, set API URL to `http://localhost:8080` and the API key to `dev` (or whatever you set).
 
 ---
 
 ## Data model
 
-See [`api/src/db/schema.sql`](api/src/db/schema.sql) for the full D1 schema.
+See [`api/src/db/schema.sql`](api/src/db/schema.sql) for the full SQLite schema.
 
 ```
 ideas          id | type | title | url | summary | r2_key | created_at | updated_at
