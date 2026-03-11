@@ -61,9 +61,9 @@ messages.post('/', async (c) => {
   const message = { id, body: msgBody.trim(), sender: 'user', created_at: now };
 
   if (c.env.WEBHOOK_URL) {
-    c.executionCtx.waitUntil(fireWebhook(c.env, message));
+    fireWebhook(c.env, message);
   } else {
-    c.executionCtx.waitUntil(generateReply(c.env, msgBody.trim()));
+    generateReply(c.env, msgBody.trim());
   }
 
   return c.json({ message }, 201);
@@ -96,14 +96,14 @@ async function generateReply(env, userMessage) {
       ? `You are Sleeper, a personal server assistant. Be concise.\n\nRecent tasks:\n${contextLines}`
       : 'You are Sleeper, a personal server assistant. Be concise.';
 
-    const response = await env.AI.run('@cf/meta/llama-3.1-8b-instruct', {
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userMessage },
-      ],
+    const response = await env.AI.messages.create({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 1024,
+      system: systemPrompt,
+      messages: [{ role: 'user', content: userMessage }],
     });
 
-    const replyText = response?.response?.trim();
+    const replyText = response.content[0]?.text?.trim();
     if (!replyText) return;
 
     const replyId = generateId();

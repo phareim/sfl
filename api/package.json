@@ -4,16 +4,17 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "wrangler dev",
-    "deploy": "wrangler deploy",
-    "db:init": "wrangler d1 execute sfl-db --file=src/db/schema.sql",
-    "db:init:local": "wrangler d1 execute sfl-db --local --file=src/db/schema.sql"
+    "dev": "node --watch src/server.js",
+    "start": "node src/server.js",
+    "db:init": "node --input-type=module --eval \"import { initDb } from './src/env.js'; initDb();\""
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.78.0",
+    "@aws-sdk/client-s3": "^3.782.0",
+    "@hono/node-server": "^1.14.0",
+    "better-sqlite3": "^11.9.1",
     "hono": "^4.6.0",
-    "nanoid": "^5.0.7"
-  },
-  "devDependencies": {
-    "wrangler": "^4.71.0"
+    "nanoid": "^5.0.7",
+    "node-html-parser": "^6.1.13"
   }
 }

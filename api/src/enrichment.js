@@ -4,7 +4,7 @@ import { getJson, putJson } from './lib/r2.js';
 
 /**
  * Auto-tag, auto-connect, and optionally format text for a newly created idea.
- * Called via ctx.waitUntil() — errors are swallowed so they never affect the response.
+ * Called fire-and-forget — errors are swallowed so they never affect the response.
  */
 export async function enrichIdea(env, ideaId) {
   try {
@@ -123,17 +123,14 @@ async function formatAsMarkdown(env, idea, data) {
     // Skip very short texts (nothing to structure) and very long ones (token limits)
     if (text.length < 100 || text.length > 6000) return;
 
-    const messages = [
-      {
-        role: 'system',
-        content:
-          'You are a Markdown formatter. Add Markdown syntax to the text below to improve its visual structure. STRICT RULES: do NOT change, add, remove, or reorder any words. Do NOT paraphrase, summarize, or expand anything. Only insert Markdown characters (# ## ### * - ** __ ` etc.) where they genuinely help. Every word in your output must appear in the input, unchanged and in the same order. Return only the formatted text, no preamble.',
-      },
-      { role: 'user', content: text },
-    ];
-
-    const response = await env.AI.run('@cf/meta/llama-3.1-8b-instruct', { messages, max_tokens: 4096 });
-    const formatted = response?.response?.trim();
+    const response = await env.AI.messages.create({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 4096,
+      system:
+        'You are a Markdown formatter. Add Markdown syntax to the text below to improve its visual structure. STRICT RULES: do NOT change, add, remove, or reorder any words. Do NOT paraphrase, summarize, or expand anything. Only insert Markdown characters (# ## ### * - ** __ ` etc.) where they genuinely help. Every word in your output must appear in the input, unchanged and in the same order. Return only the formatted text, no preamble.',
+      messages: [{ role: 'user', content: text }],
+    });
+    const formatted = response.content[0]?.text?.trim();
     if (!formatted) return;
 
     await putJson(env.R2, idea.r2_key, { ...data, text: formatted, markdown: true });
@@ -164,8 +161,15 @@ async function findCandidates(env, idea) {
 }
 
 async function callAI(env, messages, validIds) {
-  const response = await env.AI.run('@cf/meta/llama-3.1-8b-instruct', { messages });
-  const text = response?.response?.trim() ?? '';
+  const systemMsg = messages.find((m) => m.role === 'system');
+  const userMessages = messages.filter((m) => m.role !== 'system');
+  const response = await env.AI.messages.create({
+    model: 'claude-haiku-4-5-20251001',
+    max_tokens: 1024,
+    system: systemMsg?.content,
+    messages: userMessages,
+  });
+  const text = response.content[0]?.text?.trim() ?? '';
 
   let ids;
   try {
