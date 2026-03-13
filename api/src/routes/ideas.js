@@ -1,5 +1,4 @@
 import { Hono } from 'hono';
-import { parse } from 'node-html-parser';
 import { generateId } from '../lib/nanoid.js';
 import { putJson, getJson, deleteObject, dataKey } from '../lib/r2.js';
 import { badRequest, notFound, serverError } from '../lib/errors.js';
@@ -87,7 +86,7 @@ ideas.post('/', async (c) => {
 
   const idea = await getIdea(c.env.DB, id);
 
-  enrichIdea(c.env, id);
+  c.executionCtx.waitUntil(enrichIdea(c.env, id));
 
   return c.json({ idea, data: data ?? {} }, 201);
 });
@@ -192,18 +191,36 @@ async function extractArticleText(url) {
   if (!response.ok) return null;
   if (!(response.headers.get('content-type') ?? '').includes('text/html')) return null;
 
-  const html = await response.text();
-  const root = parse(html);
+  let skipDepth = 0;
+  let currentPara = null;
+  const paragraphs = [];
 
-  // Remove noise elements
-  for (const el of root.querySelectorAll('nav, header, footer, aside, script, style, noscript')) {
-    el.remove();
-  }
-
-  const paragraphs = root
-    .querySelectorAll('p')
-    .map((el) => el.text.trim())
-    .filter((text) => text.split(/\s+/).length >= 8);
+  await new HTMLRewriter()
+    .on('nav, header, footer, aside, script, style, noscript', {
+      element(el) {
+        skipDepth++;
+        el.onEndTag(() => { skipDepth--; });
+      },
+    })
+    .on('p', {
+      element(el) {
+        if (skipDepth > 0) return;
+        currentPara = '';
+        el.onEndTag(() => {
+          if (currentPara !== null && currentPara.trim().split(/\s+/).length >= 8) {
+            paragraphs.push(currentPara.trim());
+          }
+          currentPara = null;
+        });
+      },
+      text(chunk) {
+        if (currentPara !== null && skipDepth === 0) {
+          currentPara += chunk.text;
+        }
+      },
+    })
+    .transform(response)
+    .arrayBuffer();
 
   const joined = paragraphs.join('\n\n');
   if (paragraphs.length < 3 || joined.length < 500) return null;
