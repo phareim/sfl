@@ -70,3 +70,7 @@ button[type="submit"]:disabled { opacity: 0.6; cursor: default; }
 
 .hidden { display: none !important; }
 .social-hint { padding: 4px 0 10px; font-size: 0.78rem; color: #1a73e8; font-weight: 500; }
+
+#meta-fields { display: flex; flex-direction: column; gap: 10px; }
+.meta-row { display: flex; gap: 10px; }
+.meta-row label { flex: 1; }

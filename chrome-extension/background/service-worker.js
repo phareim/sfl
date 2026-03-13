@@ -260,6 +260,17 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
+  if (message.type === 'GET_META_PROJECTS') {
+    apiGet('/api/ideas?type=meta&limit=100')
+      .then((data) => {
+        const urls = (data?.ideas ?? []).map((i) => i.url).filter(Boolean);
+        const unique = [...new Set(urls)];
+        sendResponse({ ok: true, projects: unique });
+      })
+      .catch(() => sendResponse({ ok: true, projects: [] }));
+    return true;
+  }
+
   if (message.type === 'CREATE_CONNECTION') {
     apiPost('/api/connections', message.payload)
       .then(({ connection }) => sendResponse({ ok: true, connection }))

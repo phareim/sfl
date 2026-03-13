@@ -32,6 +32,7 @@ function detectSocialPost(url) {
 
 let tags = [];
 let selectedTags = new Set();
+let metaProjects = [];
 
 async function getConfig() {
   return new Promise((res) =>
@@ -41,6 +42,71 @@ async function getConfig() {
 
 function show(id) { document.getElementById(id).classList.remove('hidden'); }
 function hide(id) { document.getElementById(id).classList.add('hidden'); }
+
+// Field visibility per type
+const TYPE_FIELDS = {
+  page:  { url: true, content: false, author: false, attribution: false, caption: false, meta: false },
+  video: { url: true, content: false, author: false, attribution: false, caption: false, meta: false },
+  quote: { url: true, content: true, author: false, attribution: true, caption: false, meta: false },
+  note:  { url: false, content: true, author: false, attribution: false, caption: false, meta: false },
+  book:  { url: false, content: false, author: true, attribution: false, caption: false, meta: false },
+  tweet: { url: true, content: true, author: false, attribution: false, caption: false, meta: false },
+  image: { url: true, content: false, author: false, attribution: false, caption: true, meta: false },
+  meta:  { url: false, content: true, author: false, attribution: false, caption: false, meta: true },
+};
+
+function updateFieldVisibility(type) {
+  const fields = TYPE_FIELDS[type] ?? TYPE_FIELDS.page;
+  const toggle = (id, visible) => {
+    const el = document.getElementById(id);
+    if (el) el.classList.toggle('hidden', !visible);
+  };
+  toggle('url-label', fields.url);
+  toggle('content-label', fields.content);
+  toggle('author-label', fields.author);
+  toggle('attribution-label', fields.attribution);
+  toggle('caption-label', fields.caption);
+  toggle('meta-fields', fields.meta);
+
+  // Update content placeholder
+  const contentEl = document.getElementById('content');
+  if (type === 'meta') contentEl.placeholder = 'Implementation details...';
+  else if (type === 'note') contentEl.placeholder = 'Write your note...';
+  else if (type === 'quote') contentEl.placeholder = 'Quote text...';
+  else contentEl.placeholder = 'Content or note...';
+}
+
+async function loadMetaProjects() {
+  const resp = await new Promise((res) =>
+    chrome.runtime.sendMessage({ type: 'GET_META_PROJECTS' }, res)
+  );
+  metaProjects = resp?.projects ?? [];
+
+  const select = document.getElementById('meta-project');
+  select.innerHTML = '';
+
+  if (metaProjects.length === 0) {
+    const opt = document.createElement('option');
+    opt.value = '';
+    opt.textContent = 'No projects found';
+    select.appendChild(opt);
+  } else {
+    for (const project of metaProjects) {
+      const opt = document.createElement('option');
+      opt.value = project;
+      // Show short name: owner/repo
+      const short = project.replace(/^https?:\/\/github\.com\//, '');
+      opt.textContent = short;
+      select.appendChild(opt);
+    }
+  }
+
+  // Allow typing a new project URL
+  const opt = document.createElement('option');
+  opt.value = '__custom__';
+  opt.textContent = '+ Custom URL...';
+  select.appendChild(opt);
+}
 
 async function init() {
   const { sfl_api_url, sfl_api_key } = await getConfig();
@@ -93,6 +159,31 @@ async function init() {
     } catch { /* ignore */ }
   }
 
+  // Set initial field visibility
+  updateFieldVisibility(document.getElementById('type').value);
+
+  // Listen for type changes
+  document.getElementById('type').addEventListener('change', (e) => {
+    updateFieldVisibility(e.target.value);
+    if (e.target.value === 'meta') loadMetaProjects();
+  });
+
+  // Handle custom project URL
+  document.getElementById('meta-project').addEventListener('change', (e) => {
+    if (e.target.value === '__custom__') {
+      const url = prompt('Enter GitHub project URL:');
+      if (url) {
+        const opt = document.createElement('option');
+        opt.value = url;
+        opt.textContent = url.replace(/^https?:\/\/github\.com\//, '');
+        e.target.insertBefore(opt, e.target.lastElementChild);
+        e.target.value = url;
+      } else {
+        e.target.value = metaProjects[0] ?? '';
+      }
+    }
+  });
+
   // Load tags
   const tagsResp = await new Promise((res) =>
     chrome.runtime.sendMessage({ type: 'GET_TAGS' }, res)
@@ -137,6 +228,8 @@ document.getElementById('save-form').addEventListener('submit', async (e) => {
 
   const video = detectVideo(url);
   let data;
+  let ideaUrl = url || null;
+
   switch (type) {
     case 'page':  data = { url, title }; break;
     case 'video': data = {
@@ -145,15 +238,37 @@ document.getElementById('save-form').addEventListener('submit', async (e) => {
       video_id: video.video_id ?? null,
       page_title: title,
     }; break;
-    case 'quote': data = { text: content, source_url: url }; break;
+    case 'quote': data = {
+      text: content,
+      source_url: url,
+      attribution: document.getElementById('attribution').value || null,
+    }; break;
     case 'note':  data = { content }; break;
     case 'tweet': data = {
       url, text: content,
       author: social.author ?? null,
       platform: social.platform ?? null,
     }; break;
-    case 'book':  data = { title }; break;
-    default:      data = { content };
+    case 'book':  data = {
+      title,
+      author: document.getElementById('author').value || null,
+    }; break;
+    case 'image': data = {
+      source_url: url,
+      caption: document.getElementById('caption').value || null,
+    }; break;
+    case 'meta': {
+      const project = document.getElementById('meta-project').value;
+      data = {
+        project: project || null,
+        priority: document.getElementById('meta-priority').value,
+        status: document.getElementById('meta-status').value,
+        implementation_details: content || null,
+      };
+      ideaUrl = project || null;
+      break;
+    }
+    default: data = { content };
   }
 
   const resp = await new Promise((res) =>
@@ -162,7 +277,7 @@ document.getElementById('save-form').addEventListener('submit', async (e) => {
       payload: {
         type,
         title: title || null,
-        url: url || null,
+        url: ideaUrl,
         summary: content.slice(0, 200) || title || null,
         data,
       },

@@ -178,7 +178,24 @@ The Worker also runs an OAuth 2.0 server so Claude.ai can connect without exposi
 | Right-click selected text → **Save selection to SFL** | `type: quote` with selected text + source URL |
 | Right-click page → **Save page to SFL** | `type: page`, or `type: tweet` if URL is a social post |
 | Right-click image → **Save image to SFL** | `type: image` + binary uploaded to R2 |
-| Click extension icon (popup) | Quick-capture with type auto-detection and tag picker |
+| Click extension icon (popup) | Quick-capture with type picker, type-specific fields, and tag picker |
+
+### Popup type-aware form
+
+The popup shows/hides fields based on the selected idea type:
+
+| Type | Fields shown |
+|---|---|
+| Page | Title, URL |
+| Video | Title, URL |
+| Quote | Title, URL, Content, Attribution |
+| Note | Title, Content |
+| Book | Title, Author |
+| Tweet | Title, URL, Content |
+| Image | Title, URL, Caption |
+| Meta / Feature | Title, Content (impl. details), Project (dropdown), Priority (A–D), Status |
+
+For **meta** ideas, the project dropdown is populated from existing meta ideas' project URLs, with a "+ Custom URL…" option to add a new one.
 
 ### Social post auto-detection
 

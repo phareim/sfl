@@ -10,7 +10,7 @@ Deploys entirely to Cloudflare (Worker + Pages + D1 + R2). Single-user. Push to 
 |---|---|
 | API | Cloudflare Worker + Hono.js, D1 (metadata), R2 (JSON blobs + media) |
 | Web | SvelteKit (static) + Cloudflare Pages |
-| Extension | Chrome MV3 — context menus, popup, social post detection |
+| Extension | Chrome MV3 — context menus, type-aware popup (incl. meta), social post detection |
 | iOS | SwiftUI + Share Extension |
 | MCP | Streamable HTTP at `/mcp`; OAuth 2.0 server at `/oauth` for Claude.ai |
 | AI | Cloudflare Workers AI (`@cf/meta/llama-3.1-8b-instruct`) — enrichment |

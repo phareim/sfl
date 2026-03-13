@@ -26,15 +26,16 @@
           <option value="book">Book</option>
           <option value="tweet">Tweet</option>
           <option value="image">Image</option>
+          <option value="meta">Meta / Feature</option>
         </select>
       </label>
 
-      <label>
+      <label id="title-label">
         Title
         <input type="text" id="title" placeholder="Title" />
       </label>
 
-      <label>
+      <label id="url-label">
         URL
         <input type="url" id="url" placeholder="https://..." />
       </label>
@@ -43,6 +44,55 @@
         Content / Note
         <textarea id="content" rows="3" placeholder="Content or note..."></textarea>
       </label>
+
+      <!-- Book-specific -->
+      <label id="author-label" class="hidden">
+        Author
+        <input type="text" id="author" placeholder="Author name" />
+      </label>
+
+      <!-- Quote-specific -->
+      <label id="attribution-label" class="hidden">
+        Attribution
+        <input type="text" id="attribution" placeholder="Who said it?" />
+      </label>
+
+      <!-- Image-specific -->
+      <label id="caption-label" class="hidden">
+        Caption
+        <input type="text" id="caption" placeholder="Image caption" />
+      </label>
+
+      <!-- Meta-specific -->
+      <div id="meta-fields" class="hidden">
+        <label>
+          Project
+          <select id="meta-project">
+            <option value="">Loading projects...</option>
+          </select>
+        </label>
+        <div class="meta-row">
+          <label>
+            Priority
+            <select id="meta-priority">
+              <option value="B">B — Normal</option>
+              <option value="A">A — High</option>
+              <option value="C">C — Low</option>
+              <option value="D">D — Someday</option>
+            </select>
+          </label>
+          <label>
+            Status
+            <select id="meta-status">
+              <option value="draft">Draft</option>
+              <option value="ready">Ready</option>
+              <option value="in_progress">In Progress</option>
+              <option value="done">Done</option>
+              <option value="rejected">Rejected</option>
+            </select>
+          </label>
+        </div>
+      </div>
 
       <div class="tag-section" id="tag-section">
         <span class="tag-label">Tags</span>
