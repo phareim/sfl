@@ -352,6 +352,7 @@ GET    /api/media/:id/url             stream media file from R2
 DELETE /api/media/:id                 delete from R2 + DB
 
 GET    /api/tags                      all tags with usage counts
+GET    /api/github/repos?q=term       search GitHub repos (requires GITHUB_TOKEN secret)
 GET    /api/graph                     { nodes: [...ideas], edges: [...connections] }
 GET    /api/graph/:id/neighbors       idea + immediate neighbors (1-hop)
 GET    /health                        health check (no auth required)
