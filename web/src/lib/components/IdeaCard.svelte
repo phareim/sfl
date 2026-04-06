@@ -103,6 +103,8 @@ function formatDate(ms) {
     color: var(--text);
     box-shadow: var(--shadow);
     transition: box-shadow 0.1s, transform 0.1s;
+    overflow: hidden;
+    min-width: 0;
   }
   .card:hover {
     box-shadow: var(--shadow-hover);
@@ -138,6 +140,9 @@ function formatDate(ms) {
     font-weight: 600;
     line-height: 1.35;
     color: var(--text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .summary {
