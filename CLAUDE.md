@@ -1,10 +1,12 @@
-# SFL — Claude Instructions
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Project overview
 
-Sleeper For Life — personal idea-capture tool. Everything becomes an **idea** — web pages, quotes, images, tweets, books, notes. Ideas connect to each other as a graph. Tags are themselves ideas; tagging is a graph edge.
+Sleeper For Life — personal idea-capture tool. Everything becomes an **idea** — web pages, quotes, images, tweets, books, notes. Ideas connect as a graph. Tags are ideas; tagging is a graph edge.
 
-Deploys entirely to Cloudflare (Worker + Pages + D1 + R2). Single-user. Push to `master` → auto-deploy to production via GitHub Actions.
+Deploys entirely to Cloudflare (Worker + Pages + D1 + R2). Single-user. Push to `master` → auto-deploy via GitHub Actions.
 
 | Layer | Tech |
 |---|---|
@@ -18,16 +20,24 @@ Deploys entirely to Cloudflare (Worker + Pages + D1 + R2). Single-user. Push to 
 | AI | Workers AI (`@cf/meta/llama-3.1-8b-instruct`) — enrichment + chat replies |
 | Chat | Persistent message thread via D1; AI replies or webhook forwarding |
 
-**The API and data model are the center of the service.** The web app, extension, iOS app, MCP server, and AI enrichment exist to feed data in and out of the API — they are secondary.
+**The API and data model are the center of the service.** All other layers feed data in and out of the API.
 
-Key data model facts:
-- D1 holds indexed metadata only; type-specific content lives as JSON in R2 at `ideas/{id}/data.json`
-- Tags are ideas with `type='tag'`; tagging = connection with `label='tagged_with'`
-- IDs are nanoid 21 chars
-- Auth: Bearer token (`API_KEY` Cloudflare secret) or OAuth-issued token (stored in `oauth_tokens` D1 table). Additional secrets: `GITHUB_TOKEN` (repo search proxy), `WEBHOOK_URL` + `WEBHOOK_SECRET` (message forwarding)
-- MCP tools: `list_tags`, `capture_idea`, `search_ideas`, `list_ideas`, `get_idea`, `create_idea`, `tag_idea`, `create_connection`, `add_note`, `update_idea`
-- When listing or creating `meta` ideas, always pass the current repo's GitHub URL: `list_ideas(type="meta", project="https://github.com/owner/repo")` and `create_idea(type="meta", data={ project, priority, status, ... })`. Detect the project URL from `git remote get-url origin`.
-- AI enrichment runs via `api/src/enrichment.js` after every POST /ideas (fire-and-forget via `ctx.waitUntil`). It auto-applies tags, finds related ideas (`related_to` connections), and formats `data.text` as markdown when present (100–12 000 chars, non-page types). Sets `data.markdown = true` when done. Manual trigger: `POST /api/ideas/:id/enrich?mode=tags|connections|markdown|all`.
+Key data model: D1 holds indexed metadata; type-specific content lives as JSON in R2 at `ideas/{id}/data.json`. Auth via Bearer token (`API_KEY`) or OAuth token. Schema source of truth: `api/src/db/schema.sql`.
+
+When listing or creating `meta` ideas, always pass the current repo's GitHub URL: `list_ideas(type="meta", project="https://github.com/owner/repo")`. Detect the project URL from `git remote get-url origin`.
+
+## Build commands
+
+```bash
+pnpm install                              # install all workspaces
+pnpm dev                                  # dev servers (api + web in parallel)
+cd api && pnpm exec wrangler deploy       # deploy API worker
+cd web && pnpm build                      # build static site
+cd api && pnpm run db:init                # apply schema to remote D1
+cd api && pnpm run db:init:local          # apply schema to local D1
+```
+
+No test framework, linter, or formatter is configured.
 
 ## Conventions
 
