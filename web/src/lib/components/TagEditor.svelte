@@ -1,91 +1,91 @@
 <script>
-  import { createEventDispatcher } from 'svelte';
-  import { apiFetch } from '../api/client.js';
-  import { createIdea } from '../api/ideas.js';
-  import { createConnection, deleteConnection } from '../api/connections.js';
+import { createEventDispatcher } from 'svelte';
+import { apiFetch } from '../api/client.js';
+import { createConnection, deleteConnection } from '../api/connections.js';
+import { createIdea } from '../api/ideas.js';
 
-  export let ideaId;
-  // Array of { connectionId, tagId, tagTitle }
-  export let currentTags = [];
+export let ideaId;
+// Array of { connectionId, tagId, tagTitle }
+export let currentTags = [];
 
-  const dispatch = createEventDispatcher();
+const dispatch = createEventDispatcher();
 
-  let allTags = [];
-  let input = '';
-  let suggestions = [];
-  let saving = false;
-  let showSuggestions = false;
+let allTags = [];
+let input = '';
+let suggestions = [];
+let saving = false;
+let showSuggestions = false;
 
-  async function loadAllTags() {
-    try {
-      const data = await apiFetch('/api/tags');
-      allTags = data.tags ?? [];
-    } catch {}
+async function loadAllTags() {
+  try {
+    const data = await apiFetch('/api/tags');
+    allTags = data.tags ?? [];
+  } catch {}
+}
+
+loadAllTags();
+
+$: {
+  const q = input.trim().toLowerCase();
+  if (q.length === 0) {
+    suggestions = [];
+  } else {
+    const currentTagIds = new Set(currentTags.map((t) => t.tagId));
+    suggestions = allTags
+      .filter((t) => !currentTagIds.has(t.id) && (t.title ?? '').toLowerCase().includes(q))
+      .slice(0, 6);
   }
+}
 
-  loadAllTags();
-
-  $: {
-    const q = input.trim().toLowerCase();
-    if (q.length === 0) {
-      suggestions = [];
-    } else {
-      const currentTagIds = new Set(currentTags.map((t) => t.tagId));
-      suggestions = allTags
-        .filter((t) => !currentTagIds.has(t.id) && (t.title ?? '').toLowerCase().includes(q))
-        .slice(0, 6);
-    }
-  }
-
-  async function addTag(tag) {
-    saving = true;
-    try {
-      const { connection } = await createConnection({
-        from_id: ideaId,
-        to_id: tag.id,
-        label: 'tagged_with',
-      });
-      currentTags = [...currentTags, { connectionId: connection.id, tagId: tag.id, tagTitle: tag.title }];
-      dispatch('change', currentTags);
-    } finally {
-      saving = false;
-      input = '';
-      showSuggestions = false;
-    }
-  }
-
-  async function createAndAddTag(name) {
-    saving = true;
-    try {
-      const { idea: newTag } = await createIdea({ type: 'tag', title: name, data: {} });
-      allTags = [...allTags, newTag];
-      await addTag(newTag);
-    } finally {
-      saving = false;
-    }
-  }
-
-  async function removeTag(entry) {
-    await deleteConnection(entry.connectionId);
-    currentTags = currentTags.filter((t) => t.connectionId !== entry.connectionId);
+async function addTag(tag) {
+  saving = true;
+  try {
+    const { connection } = await createConnection({
+      from_id: ideaId,
+      to_id: tag.id,
+      label: 'tagged_with',
+    });
+    currentTags = [...currentTags, { connectionId: connection.id, tagId: tag.id, tagTitle: tag.title }];
     dispatch('change', currentTags);
+  } finally {
+    saving = false;
+    input = '';
+    showSuggestions = false;
   }
+}
 
-  function onKeydown(e) {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      const q = input.trim();
-      if (!q) return;
-      const exact = suggestions.find((t) => (t.title ?? '').toLowerCase() === q.toLowerCase());
-      if (exact) {
-        addTag(exact);
-      } else {
-        createAndAddTag(q);
-      }
-    } else if (e.key === 'Escape') {
-      showSuggestions = false;
-    }
+async function createAndAddTag(name) {
+  saving = true;
+  try {
+    const { idea: newTag } = await createIdea({ type: 'tag', title: name, data: {} });
+    allTags = [...allTags, newTag];
+    await addTag(newTag);
+  } finally {
+    saving = false;
   }
+}
+
+async function removeTag(entry) {
+  await deleteConnection(entry.connectionId);
+  currentTags = currentTags.filter((t) => t.connectionId !== entry.connectionId);
+  dispatch('change', currentTags);
+}
+
+function onKeydown(e) {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    const q = input.trim();
+    if (!q) return;
+    const exact = suggestions.find((t) => (t.title ?? '').toLowerCase() === q.toLowerCase());
+    if (exact) {
+      addTag(exact);
+    } else {
+      createAndAddTag(q);
+    }
+  } else if (e.key === 'Escape') {
+    showSuggestions = false;
+  }
+}
 </script>
 
 <div class="tag-editor">

@@ -1,180 +1,190 @@
 <script>
-  import NoteEditor from './NoteEditor.svelte';
-  import MediaGallery from './MediaGallery.svelte';
-  import TagEditor from './TagEditor.svelte';
-  import IdeaCard from './IdeaCard.svelte';
-  import { marked } from 'marked';
-  import { updateNote } from '../api/notes.js';
-  import { updateIdea, fetchContent, enrichIdea } from '../api/ideas.js';
+import { marked } from 'marked';
+import { enrichIdea, fetchContent, updateIdea } from '../api/ideas.js';
+import { updateNote } from '../api/notes.js';
+import IdeaCard from './IdeaCard.svelte';
+import MediaGallery from './MediaGallery.svelte';
+import NoteEditor from './NoteEditor.svelte';
+import TagEditor from './TagEditor.svelte';
 
-  export let idea;
-  export let data = {};
-  export let connections = [];
-  export let notes = [];
-  export let media = [];
+export let idea;
+export let data = {};
+export let connections = [];
+export let notes = [];
+export let media = [];
 
-  const ACCENTS = {
-    page: '#60a5fa', tweet: '#34d399', book:  '#fbbf24',
-    quote:'#a78bfa', note:  '#fb923c', image: '#fb7185',
-    text: '#2dd4bf', video: '#f87171', tag:   '#94a3b8',
-    meta: '#818cf8',
-  };
+const ACCENTS = {
+  page: '#60a5fa',
+  tweet: '#34d399',
+  book: '#fbbf24',
+  quote: '#a78bfa',
+  note: '#fb923c',
+  image: '#fb7185',
+  text: '#2dd4bf',
+  video: '#f87171',
+  tag: '#94a3b8',
+  meta: '#818cf8',
+};
 
-  function formatDate(ms) {
-    if (!ms) return '';
-    return new Date(ms).toLocaleString();
-  }
+function formatDate(ms) {
+  if (!ms) return '';
+  return new Date(ms).toLocaleString();
+}
 
-  $: accent = ACCENTS[idea.type] ?? '#cbd5e1';
+$: accent = ACCENTS[idea.type] ?? '#cbd5e1';
 
-  let editingNoteId = null;
-  let editingBody = '';
+let editingNoteId = null;
+let editingBody = '';
 
-  let editingTitle = false;
-  let titleDraft = '';
+let editingTitle = false;
+let titleDraft = '';
 
-  function startEditTitle() {
-    titleDraft = idea.title ?? '';
-    editingTitle = true;
-  }
+function startEditTitle() {
+  titleDraft = idea.title ?? '';
+  editingTitle = true;
+}
 
-  let editingText = false;
-  let textDraft = '';
+let editingText = false;
+let textDraft = '';
 
-  function startEditText() {
-    textDraft = data.text ?? '';
-    editingText = true;
-  }
+function startEditText() {
+  textDraft = data.text ?? '';
+  editingText = true;
+}
 
-  async function saveText() {
-    const trimmed = textDraft.trim();
-    editingText = false;
-    if (trimmed === (data.text ?? '').trim()) return;
-    const result = await updateIdea(idea.id, { data: { ...data, text: trimmed } });
+async function saveText() {
+  const trimmed = textDraft.trim();
+  editingText = false;
+  if (trimmed === (data.text ?? '').trim()) return;
+  const result = await updateIdea(idea.id, { data: { ...data, text: trimmed } });
+  data = result.data;
+}
+
+let fetching = false;
+let enrichingTags = false;
+let enrichingConnections = false;
+let enrichingMarkdown = false;
+$: enriching = enrichingTags || enrichingConnections || enrichingMarkdown;
+let pastingText = false;
+let pasteBuffer = '';
+
+async function savePastedText() {
+  const trimmed = pasteBuffer.trim();
+  pastingText = false;
+  pasteBuffer = '';
+  if (!trimmed) return;
+  const result = await updateIdea(idea.id, { data: { ...data, text: trimmed } });
+  data = result.data;
+}
+
+async function doFetchContent() {
+  fetching = true;
+  try {
+    const result = await fetchContent(idea.id);
     data = result.data;
+  } finally {
+    fetching = false;
   }
+}
 
-  let fetching = false;
-  let enrichingTags = false;
-  let enrichingConnections = false;
-  let enrichingMarkdown = false;
-  $: enriching = enrichingTags || enrichingConnections || enrichingMarkdown;
-  let pastingText = false;
-  let pasteBuffer = '';
+async function saveTitle() {
+  const trimmed = titleDraft.trim();
+  editingTitle = false;
+  if (!trimmed || trimmed === idea.title) return;
+  const { idea: updated } = await updateIdea(idea.id, { title: trimmed });
+  idea = { ...idea, title: updated.title };
+}
 
-  async function savePastedText() {
-    const trimmed = pasteBuffer.trim();
-    pastingText = false;
-    pasteBuffer = '';
-    if (!trimmed) return;
-    const result = await updateIdea(idea.id, { data: { ...data, text: trimmed } });
-    data = result.data;
-  }
+function startEdit(note) {
+  editingNoteId = note.id;
+  editingBody = note.body;
+}
 
-  async function doFetchContent() {
-    fetching = true;
-    try {
-      const result = await fetchContent(idea.id);
-      data = result.data;
-    } finally {
-      fetching = false;
-    }
-  }
-
-  async function saveTitle() {
-    const trimmed = titleDraft.trim();
-    editingTitle = false;
-    if (!trimmed || trimmed === idea.title) return;
-    const { idea: updated } = await updateIdea(idea.id, { title: trimmed });
-    idea = { ...idea, title: updated.title };
-  }
-
-  function startEdit(note) {
-    editingNoteId = note.id;
-    editingBody = note.body;
-  }
-
-  async function saveEdit(note) {
-    if (editingBody.trim() === note.body) { editingNoteId = null; return; }
-    const { note: updated } = await updateNote(note.id, { body: editingBody.trim() });
-    notes = notes.map((n) => (n.id === note.id ? updated : n));
+async function saveEdit(note) {
+  if (editingBody.trim() === note.body) {
     editingNoteId = null;
+    return;
   }
+  const { note: updated } = await updateNote(note.id, { body: editingBody.trim() });
+  notes = notes.map((n) => (n.id === note.id ? updated : n));
+  editingNoteId = null;
+}
 
-  $: currentTags = connections
-    .filter((c) => c.label === 'tagged_with' && (c.to_type === 'tag' || c.from_type === 'tag'))
-    .map((c) =>
-      c.to_type === 'tag'
-        ? { connectionId: c.id, tagId: c.to_id, tagTitle: c.to_title }
-        : { connectionId: c.id, tagId: c.from_id, tagTitle: c.from_title }
-    );
+$: currentTags = connections
+  .filter((c) => c.label === 'tagged_with' && (c.to_type === 'tag' || c.from_type === 'tag'))
+  .map((c) =>
+    c.to_type === 'tag'
+      ? { connectionId: c.id, tagId: c.to_id, tagTitle: c.to_title }
+      : { connectionId: c.id, tagId: c.from_id, tagTitle: c.from_title },
+  );
 
-  $: relatedConnections = connections.filter((c) => c.label !== 'tagged_with');
+$: relatedConnections = connections.filter((c) => c.label !== 'tagged_with');
 
-  // For tag ideas: all ideas tagged with this tag
-  $: taggedIdeas = idea.type === 'tag'
+// For tag ideas: all ideas tagged with this tag
+$: taggedIdeas =
+  idea.type === 'tag'
     ? connections
         .filter((c) => c.label === 'tagged_with')
         .map((c) =>
           c.to_type === 'tag'
             ? { id: c.from_id, type: c.from_type, title: c.from_title }
-            : { id: c.to_id,   type: c.to_type,   title: c.to_title   }
+            : { id: c.to_id, type: c.to_type, title: c.to_title },
         )
         .filter((i) => i.type !== 'tag')
     : [];
 
-  async function doEnrichTags() {
-    enrichingTags = true;
-    try {
-      const result = await enrichIdea(idea.id, 'tags');
-      connections = result.connections;
-      data = result.data;
-    } finally {
-      enrichingTags = false;
-    }
+async function doEnrichTags() {
+  enrichingTags = true;
+  try {
+    const result = await enrichIdea(idea.id, 'tags');
+    connections = result.connections;
+    data = result.data;
+  } finally {
+    enrichingTags = false;
   }
+}
 
-  async function doEnrichConnections() {
-    enrichingConnections = true;
-    try {
-      const result = await enrichIdea(idea.id, 'connections');
-      connections = result.connections;
-      data = result.data;
-    } finally {
-      enrichingConnections = false;
-    }
+async function doEnrichConnections() {
+  enrichingConnections = true;
+  try {
+    const result = await enrichIdea(idea.id, 'connections');
+    connections = result.connections;
+    data = result.data;
+  } finally {
+    enrichingConnections = false;
   }
+}
 
-  async function doEnrichMarkdown() {
-    enrichingMarkdown = true;
-    try {
-      const result = await enrichIdea(idea.id, 'markdown');
-      connections = result.connections;
-      data = result.data;
-    } finally {
-      enrichingMarkdown = false;
-    }
+async function doEnrichMarkdown() {
+  enrichingMarkdown = true;
+  try {
+    const result = await enrichIdea(idea.id, 'markdown');
+    connections = result.connections;
+    data = result.data;
+  } finally {
+    enrichingMarkdown = false;
   }
+}
 
-  async function saveMetaField(field, value) {
-    const updated = await updateIdea(idea.id, { data: { ...data, [field]: value } });
-    data = updated.data;
-  }
+async function saveMetaField(field, value) {
+  const updated = await updateIdea(idea.id, { data: { ...data, [field]: value } });
+  data = updated.data;
+}
 
-  $: videoEmbed = (() => {
-    if (idea.type !== 'video') return null;
-    if (data?.video_id && data?.platform) return { platform: data.platform, video_id: data.video_id };
-    const url = idea.url ?? '';
-    let m = url.match(/[?&]v=([\w-]{11})/);
-    if (m) return { platform: 'youtube', video_id: m[1] };
-    m = url.match(/youtu\.be\/([\w-]{11})/);
-    if (m) return { platform: 'youtube', video_id: m[1] };
-    m = url.match(/youtube\.com\/shorts\/([\w-]{11})/);
-    if (m) return { platform: 'youtube', video_id: m[1] };
-    m = url.match(/tiktok\.com\/@[\w.]+\/video\/(\d+)/);
-    if (m) return { platform: 'tiktok', video_id: m[1] };
-    return null;
-  })();
+$: videoEmbed = (() => {
+  if (idea.type !== 'video') return null;
+  if (data?.video_id && data?.platform) return { platform: data.platform, video_id: data.video_id };
+  const url = idea.url ?? '';
+  let m = url.match(/[?&]v=([\w-]{11})/);
+  if (m) return { platform: 'youtube', video_id: m[1] };
+  m = url.match(/youtu\.be\/([\w-]{11})/);
+  if (m) return { platform: 'youtube', video_id: m[1] };
+  m = url.match(/youtube\.com\/shorts\/([\w-]{11})/);
+  if (m) return { platform: 'youtube', video_id: m[1] };
+  m = url.match(/tiktok\.com\/@[\w.]+\/video\/(\d+)/);
+  if (m) return { platform: 'tiktok', video_id: m[1] };
+  return null;
+})();
 </script>
 
 {#if idea.type === 'tag'}

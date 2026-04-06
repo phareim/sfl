@@ -1,65 +1,65 @@
 <script>
-  import { onDestroy, createEventDispatcher } from 'svelte';
-  import { uploadMedia, deleteMedia } from '../api/media.js';
+import { createEventDispatcher, onDestroy } from 'svelte';
+import { deleteMedia, uploadMedia } from '../api/media.js';
 
-  export let ideaId;
-  export let items = [];
+export let ideaId;
+export let items = [];
 
-  const dispatch = createEventDispatcher();
+const dispatch = createEventDispatcher();
 
-  let uploading = false;
-  let blobUrls = {};
+let uploading = false;
+let blobUrls = {};
 
-  function getConfig() {
-    return {
-      apiUrl: (localStorage.getItem('sfl_api_url') ?? '').replace(/\/$/, ''),
-      apiKey: localStorage.getItem('sfl_api_key') ?? '',
-    };
-  }
+function getConfig() {
+  return {
+    apiUrl: (localStorage.getItem('sfl_api_url') ?? '').replace(/\/$/, ''),
+    apiKey: localStorage.getItem('sfl_api_key') ?? '',
+  };
+}
 
-  async function loadBlobUrl(item) {
-    if (blobUrls[item.id]) return;
-    const { apiUrl, apiKey } = getConfig();
-    const res = await fetch(`${apiUrl}/api/media/${item.id}/url`, {
-      headers: { Authorization: `Bearer ${apiKey}` },
-    });
-    if (res.ok) {
-      const blob = await res.blob();
-      blobUrls = { ...blobUrls, [item.id]: URL.createObjectURL(blob) };
-    }
-  }
-
-  $: for (const item of items) {
-    if (isImage(item.mime_type)) loadBlobUrl(item);
-  }
-
-  onDestroy(() => {
-    for (const url of Object.values(blobUrls)) URL.revokeObjectURL(url);
+async function loadBlobUrl(item) {
+  if (blobUrls[item.id]) return;
+  const { apiUrl, apiKey } = getConfig();
+  const res = await fetch(`${apiUrl}/api/media/${item.id}/url`, {
+    headers: { Authorization: `Bearer ${apiKey}` },
   });
-
-  async function onFileChange(e) {
-    const file = e.target.files[0];
-    if (!file) return;
-    uploading = true;
-    try {
-      const { media } = await uploadMedia(ideaId, file);
-      items = [...items, media];
-      dispatch('change', items);
-    } finally {
-      uploading = false;
-      e.target.value = '';
-    }
+  if (res.ok) {
+    const blob = await res.blob();
+    blobUrls = { ...blobUrls, [item.id]: URL.createObjectURL(blob) };
   }
+}
 
-  async function remove(id) {
-    await deleteMedia(id);
-    items = items.filter((m) => m.id !== id);
+$: for (const item of items) {
+  if (isImage(item.mime_type)) loadBlobUrl(item);
+}
+
+onDestroy(() => {
+  for (const url of Object.values(blobUrls)) URL.revokeObjectURL(url);
+});
+
+async function onFileChange(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  uploading = true;
+  try {
+    const { media } = await uploadMedia(ideaId, file);
+    items = [...items, media];
     dispatch('change', items);
+  } finally {
+    uploading = false;
+    e.target.value = '';
   }
+}
 
-  function isImage(mime) {
-    return mime.startsWith('image/');
-  }
+async function remove(id) {
+  await deleteMedia(id);
+  items = items.filter((m) => m.id !== id);
+  dispatch('change', items);
+}
+
+function isImage(mime) {
+  return mime.startsWith('image/');
+}
 </script>
 
 <section class="gallery">

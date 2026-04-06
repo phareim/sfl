@@ -8,9 +8,23 @@
     "cli"
   ],
   "scripts": {
-    "dev": "pnpm -r --parallel --if-present dev"
+    "dev": "pnpm -r --parallel --if-present dev",
+    "test": "vitest run --config vitest.config.js",
+    "lint": "biome check .",
+    "format": "biome format --write .",
+    "check": "biome check --write ."
   },
   "engines": {
     "node": ">=20"
+  },
+  "pnpm": {
+    "overrides": {
+      "picomatch": ">=4.0.4",
+      "cookie": ">=0.7.0"
+    }
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.4.10",
+    "vitest": "^4.1.2"
   }
 }

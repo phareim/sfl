@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
-import { generateId } from '../lib/nanoid.js';
 import { badRequest } from '../lib/errors.js';
+import { generateId } from '../lib/nanoid.js';
 
 const messages = new Hono();
 
@@ -11,14 +11,14 @@ messages.get('/', async (c) => {
 
   let rows;
   if (cursor) {
-    const { results } = await c.env.DB
-      .prepare('SELECT * FROM messages WHERE created_at < ? ORDER BY created_at DESC LIMIT ?')
+    const { results } = await c.env.DB.prepare(
+      'SELECT * FROM messages WHERE created_at < ? ORDER BY created_at DESC LIMIT ?',
+    )
       .bind(parseInt(cursor, 10), limit)
       .all();
     rows = results;
   } else {
-    const { results } = await c.env.DB
-      .prepare('SELECT * FROM messages ORDER BY created_at DESC LIMIT ?')
+    const { results } = await c.env.DB.prepare('SELECT * FROM messages ORDER BY created_at DESC LIMIT ?')
       .bind(limit)
       .all();
     rows = results;
@@ -44,8 +44,7 @@ messages.post('/', async (c) => {
   if (sender === 'sleeper') {
     const id = generateId();
     const now = Date.now();
-    await c.env.DB
-      .prepare('INSERT INTO messages (id, body, sender, created_at) VALUES (?, ?, ?, ?)')
+    await c.env.DB.prepare('INSERT INTO messages (id, body, sender, created_at) VALUES (?, ?, ?, ?)')
       .bind(id, msgBody.trim(), 'sleeper', now)
       .run();
     return c.json({ message: { id, body: msgBody.trim(), sender: 'sleeper', created_at: now } }, 201);
@@ -53,8 +52,7 @@ messages.post('/', async (c) => {
 
   const id = generateId();
   const now = Date.now();
-  await c.env.DB
-    .prepare('INSERT INTO messages (id, body, sender, created_at) VALUES (?, ?, ?, ?)')
+  await c.env.DB.prepare('INSERT INTO messages (id, body, sender, created_at) VALUES (?, ?, ?, ?)')
     .bind(id, msgBody.trim(), 'user', now)
     .run();
 
@@ -87,9 +85,9 @@ async function fireWebhook(env, message) {
 async function generateReply(env, userMessage) {
   try {
     // Fetch last 5 meta ideas for context
-    const { results: metas } = await env.DB
-      .prepare("SELECT title FROM ideas WHERE type = 'meta' ORDER BY created_at DESC LIMIT 5")
-      .all();
+    const { results: metas } = await env.DB.prepare(
+      "SELECT title FROM ideas WHERE type = 'meta' ORDER BY created_at DESC LIMIT 5",
+    ).all();
 
     const contextLines = metas.map((m) => `- ${m.title}`).join('\n');
     const systemPrompt = contextLines
@@ -107,8 +105,7 @@ async function generateReply(env, userMessage) {
     if (!replyText) return;
 
     const replyId = generateId();
-    await env.DB
-      .prepare('INSERT INTO messages (id, body, sender, created_at) VALUES (?, ?, ?, ?)')
+    await env.DB.prepare('INSERT INTO messages (id, body, sender, created_at) VALUES (?, ?, ?, ?)')
       .bind(replyId, replyText, 'sleeper', Date.now())
       .run();
   } catch {

@@ -193,7 +193,9 @@ async function cmdMetaAdd(config, args) {
   const { flags, positional } = parseArgs(args);
   const title = positional.join(' ');
   if (!title) {
-    console.error('Usage: sfl meta add <title> [--priority A|B|C|D] [--status draft|in_progress|done] [--summary <text>]');
+    console.error(
+      'Usage: sfl meta add <title> [--priority A|B|C|D] [--status draft|in_progress|done] [--summary <text>]',
+    );
     process.exit(1);
   }
 
@@ -218,7 +220,9 @@ async function cmdMetaUpdate(config, args) {
   const { flags, positional } = parseArgs(args);
   const id = positional[0];
   if (!id) {
-    console.error('Usage: sfl meta update <id> [--title <text>] [--priority A|B|C|D] [--status draft|in_progress|done] [--summary <text>]');
+    console.error(
+      'Usage: sfl meta update <id> [--title <text>] [--priority A|B|C|D] [--status draft|in_progress|done] [--summary <text>]',
+    );
     process.exit(1);
   }
 

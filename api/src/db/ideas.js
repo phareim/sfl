@@ -9,7 +9,7 @@ export async function insertIdea(db, { id, type, title, url, summary, r2_key, cr
   await db
     .prepare(
       `INSERT INTO ideas (id, type, title, url, summary, r2_key, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .bind(id, type, title ?? null, url ?? null, summary ?? null, r2_key, created_at, updated_at)
     .run();
@@ -97,9 +97,7 @@ export async function listIdeas(db, { type, tag, url, limit = 20, cursor } = {})
  */
 export async function updateIdea(db, id, { title, url, summary, updated_at }) {
   await db
-    .prepare(
-      `UPDATE ideas SET title = ?, url = ?, summary = ?, updated_at = ? WHERE id = ?`
-    )
+    .prepare(`UPDATE ideas SET title = ?, url = ?, summary = ?, updated_at = ? WHERE id = ?`)
     .bind(title ?? null, url ?? null, summary ?? null, updated_at, id)
     .run();
 }
@@ -123,7 +121,7 @@ export async function searchIdeas(db, query, { limit = 20 } = {}) {
        JOIN ideas_fts f ON i.rowid = f.rowid
        WHERE ideas_fts MATCH ?
        ORDER BY rank
-       LIMIT ?`
+       LIMIT ?`,
     )
     .bind(query, limit)
     .all();
@@ -142,7 +140,7 @@ export async function getIdeaConnections(db, id) {
        FROM connections c
        JOIN ideas fi ON fi.id = c.from_id
        JOIN ideas ti ON ti.id = c.to_id
-       WHERE c.from_id = ? OR c.to_id = ?`
+       WHERE c.from_id = ? OR c.to_id = ?`,
     )
     .bind(id, id)
     .all();
@@ -153,10 +151,7 @@ export async function getIdeaConnections(db, id) {
  * Get notes for an idea.
  */
 export async function getIdeaNotes(db, id) {
-  const { results } = await db
-    .prepare('SELECT * FROM notes WHERE idea_id = ? ORDER BY created_at ASC')
-    .bind(id)
-    .all();
+  const { results } = await db.prepare('SELECT * FROM notes WHERE idea_id = ? ORDER BY created_at ASC').bind(id).all();
   return results;
 }
 
@@ -164,9 +159,6 @@ export async function getIdeaNotes(db, id) {
  * Get media for an idea.
  */
 export async function getIdeaMedia(db, id) {
-  const { results } = await db
-    .prepare('SELECT * FROM media WHERE idea_id = ? ORDER BY created_at ASC')
-    .bind(id)
-    .all();
+  const { results } = await db.prepare('SELECT * FROM media WHERE idea_id = ? ORDER BY created_at ASC').bind(id).all();
   return results;
 }

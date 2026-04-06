@@ -1,22 +1,22 @@
 <script>
-  import { onMount } from 'svelte';
-  import { listIdeas } from '$lib/api/ideas.js';
-  import IdeaCard from '$lib/components/IdeaCard.svelte';
+import { onMount } from 'svelte';
+import { listIdeas } from '$lib/api/ideas.js';
+import IdeaCard from '$lib/components/IdeaCard.svelte';
 
-  let ideas = [];
-  let loading = true;
-  let error = null;
+let ideas = [];
+let loading = true;
+let error = null;
 
-  onMount(async () => {
-    try {
-      const data = await listIdeas({ limit: 24 });
-      ideas = data.ideas;
-    } catch (e) {
-      error = e.message;
-    } finally {
-      loading = false;
-    }
-  });
+onMount(async () => {
+  try {
+    const data = await listIdeas({ limit: 24 });
+    ideas = data.ideas;
+  } catch (e) {
+    error = e.message;
+  } finally {
+    loading = false;
+  }
+});
 </script>
 
 <h1>Recent</h1>

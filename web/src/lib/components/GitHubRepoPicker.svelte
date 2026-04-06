@@ -1,75 +1,77 @@
 <script>
-  import { createEventDispatcher, onDestroy } from 'svelte';
-  import { apiFetch } from '../api/client.js';
+import { createEventDispatcher, onDestroy } from 'svelte';
+import { apiFetch } from '../api/client.js';
 
-  // value is the full GitHub URL, e.g. https://github.com/owner/repo
-  export let value = '';
+// value is the full GitHub URL, e.g. https://github.com/owner/repo
+export let value = '';
 
-  const dispatch = createEventDispatcher();
+const dispatch = createEventDispatcher();
 
-  let query = '';
-  let suggestions = [];
-  let loading = false;
-  let showDropdown = false;
-  let debounceTimer;
-  let inputEl;
+let query = '';
+let suggestions = [];
+let loading = false;
+let showDropdown = false;
+let debounceTimer;
+let inputEl;
 
-  $: displayName = urlToName(value);
+$: displayName = urlToName(value);
 
-  function urlToName(url) {
-    if (!url) return '';
-    const m = url.match(/github\.com\/([^/]+\/[^/]+?)(?:\.git)?(?:\/.*)?$/);
-    return m ? m[1] : url;
-  }
+function urlToName(url) {
+  if (!url) return '';
+  const m = url.match(/github\.com\/([^/]+\/[^/]+?)(?:\.git)?(?:\/.*)?$/);
+  return m ? m[1] : url;
+}
 
-  async function search(q) {
-    if (!q || q.length < 2) {
-      suggestions = [];
-      showDropdown = false;
-      return;
-    }
-    loading = true;
-    try {
-      const data = await apiFetch(`/api/github/repos?q=${encodeURIComponent(q)}`);
-      suggestions = data.items ?? [];
-      showDropdown = suggestions.length > 0;
-    } catch {
-      suggestions = [];
-      showDropdown = false;
-    } finally {
-      loading = false;
-    }
-  }
-
-  function onInput(e) {
-    query = e.target.value;
-    clearTimeout(debounceTimer);
-    debounceTimer = setTimeout(() => search(query), 300);
-  }
-
-  function select(repo) {
-    value = repo.html_url;
-    query = '';
+async function search(q) {
+  if (!q || q.length < 2) {
     suggestions = [];
     showDropdown = false;
-    dispatch('change', value);
+    return;
   }
-
-  function clear() {
-    value = '';
-    query = '';
+  loading = true;
+  try {
+    const data = await apiFetch(`/api/github/repos?q=${encodeURIComponent(q)}`);
+    suggestions = data.items ?? [];
+    showDropdown = suggestions.length > 0;
+  } catch {
     suggestions = [];
     showDropdown = false;
-    dispatch('change', '');
-    // Focus input after clearing so user can type immediately
-    setTimeout(() => inputEl?.focus(), 0);
+  } finally {
+    loading = false;
   }
+}
 
-  function onBlur() {
-    setTimeout(() => { showDropdown = false; }, 150);
-  }
+function onInput(e) {
+  query = e.target.value;
+  clearTimeout(debounceTimer);
+  debounceTimer = setTimeout(() => search(query), 300);
+}
 
-  onDestroy(() => clearTimeout(debounceTimer));
+function select(repo) {
+  value = repo.html_url;
+  query = '';
+  suggestions = [];
+  showDropdown = false;
+  dispatch('change', value);
+}
+
+function clear() {
+  value = '';
+  query = '';
+  suggestions = [];
+  showDropdown = false;
+  dispatch('change', '');
+  // Focus input after clearing so user can type immediately
+  setTimeout(() => inputEl?.focus(), 0);
+}
+
+function onBlur() {
+  setTimeout(() => {
+    showDropdown = false;
+  }, 150);
+}
+
+onDestroy(() => clearTimeout(debounceTimer));
 </script>
 
 <div class="repo-picker">

@@ -1,52 +1,52 @@
 <script>
-  import { createEventDispatcher } from 'svelte';
-  import { createNote, updateNote, deleteNote } from '../api/notes.js';
+import { createEventDispatcher } from 'svelte';
+import { createNote, deleteNote, updateNote } from '../api/notes.js';
 
-  export let ideaId;
-  export let notes = [];
+export let ideaId;
+export let notes = [];
 
-  const dispatch = createEventDispatcher();
+const dispatch = createEventDispatcher();
 
-  let newBody = '';
-  let saving = false;
-  let editingId = null;
-  let editingBody = '';
+let newBody = '';
+let saving = false;
+let editingId = null;
+let editingBody = '';
 
-  async function addNote() {
-    if (!newBody.trim()) return;
-    saving = true;
-    try {
-      const { note } = await createNote(ideaId, { body: newBody });
-      notes = [...notes, note];
-      newBody = '';
-      dispatch('change', notes);
-    } finally {
-      saving = false;
-    }
-  }
-
-  async function saveEdit(id) {
-    saving = true;
-    try {
-      const { note } = await updateNote(id, { body: editingBody });
-      notes = notes.map((n) => (n.id === id ? note : n));
-      editingId = null;
-      dispatch('change', notes);
-    } finally {
-      saving = false;
-    }
-  }
-
-  async function removeNote(id) {
-    await deleteNote(id);
-    notes = notes.filter((n) => n.id !== id);
+async function addNote() {
+  if (!newBody.trim()) return;
+  saving = true;
+  try {
+    const { note } = await createNote(ideaId, { body: newBody });
+    notes = [...notes, note];
+    newBody = '';
     dispatch('change', notes);
+  } finally {
+    saving = false;
   }
+}
 
-  function startEdit(note) {
-    editingId = note.id;
-    editingBody = note.body;
+async function saveEdit(id) {
+  saving = true;
+  try {
+    const { note } = await updateNote(id, { body: editingBody });
+    notes = notes.map((n) => (n.id === id ? note : n));
+    editingId = null;
+    dispatch('change', notes);
+  } finally {
+    saving = false;
   }
+}
+
+async function removeNote(id) {
+  await deleteNote(id);
+  notes = notes.filter((n) => n.id !== id);
+  dispatch('change', notes);
+}
+
+function startEdit(note) {
+  editingId = note.id;
+  editingBody = note.body;
+}
 </script>
 
 <section class="notes">

@@ -36,19 +36,21 @@ oauth.post('/register', async (c) => {
   const client_id = generateId();
   const now = Date.now();
 
-  await c.env.DB
-    .prepare('INSERT INTO oauth_clients (client_id, redirect_uris, created_at) VALUES (?, ?, ?)')
+  await c.env.DB.prepare('INSERT INTO oauth_clients (client_id, redirect_uris, created_at) VALUES (?, ?, ?)')
     .bind(client_id, JSON.stringify(redirect_uris), now)
     .run();
 
-  return c.json({
-    client_id,
-    redirect_uris,
-    client_id_issued_at: Math.floor(now / 1000),
-    grant_types: ['authorization_code'],
-    response_types: ['code'],
-    token_endpoint_auth_method: 'none',
-  }, 201);
+  return c.json(
+    {
+      client_id,
+      redirect_uris,
+      client_id_issued_at: Math.floor(now / 1000),
+      grant_types: ['authorization_code'],
+      response_types: ['code'],
+      token_endpoint_auth_method: 'none',
+    },
+    201,
+  );
 });
 
 // GET /oauth/authorize — show approval page
@@ -59,10 +61,7 @@ oauth.get('/authorize', async (c) => {
     return c.json({ error: 'unsupported_response_type' }, 400);
   }
 
-  const client = await c.env.DB
-    .prepare('SELECT * FROM oauth_clients WHERE client_id = ?')
-    .bind(client_id)
-    .first();
+  const client = await c.env.DB.prepare('SELECT * FROM oauth_clients WHERE client_id = ?').bind(client_id).first();
 
   if (!client) return c.json({ error: 'invalid_client' }, 400);
 
@@ -81,26 +80,29 @@ oauth.post('/authorize', async (c) => {
 
   if (api_key !== c.env.API_KEY) {
     return c.html(
-      authorizePage({ client_id, redirect_uri, state, code_challenge, code_challenge_method, error: 'Invalid API key.' }),
-      401
+      authorizePage({
+        client_id,
+        redirect_uri,
+        state,
+        code_challenge,
+        code_challenge_method,
+        error: 'Invalid API key.',
+      }),
+      401,
     );
   }
 
-  const client = await c.env.DB
-    .prepare('SELECT * FROM oauth_clients WHERE client_id = ?')
-    .bind(client_id)
-    .first();
+  const client = await c.env.DB.prepare('SELECT * FROM oauth_clients WHERE client_id = ?').bind(client_id).first();
 
   if (!client) return c.json({ error: 'invalid_client' }, 400);
 
   const code = generateId();
   const now = Date.now();
 
-  await c.env.DB
-    .prepare(
-      `INSERT INTO oauth_codes (code, client_id, redirect_uri, code_challenge, code_challenge_method, created_at, expires_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`
-    )
+  await c.env.DB.prepare(
+    `INSERT INTO oauth_codes (code, client_id, redirect_uri, code_challenge, code_challenge_method, created_at, expires_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+  )
     .bind(code, client_id, redirect_uri, code_challenge || null, code_challenge_method || null, now, now + 60_000)
     .run();
 
@@ -128,10 +130,7 @@ oauth.post('/token', async (c) => {
   }
 
   const now = Date.now();
-  const authCode = await c.env.DB
-    .prepare('SELECT * FROM oauth_codes WHERE code = ?')
-    .bind(code)
-    .first();
+  const authCode = await c.env.DB.prepare('SELECT * FROM oauth_codes WHERE code = ?').bind(code).first();
 
   if (!authCode) return c.json({ error: 'invalid_grant' }, 400);
   if (authCode.client_id !== client_id) return c.json({ error: 'invalid_grant' }, 400);
@@ -154,8 +153,7 @@ oauth.post('/token', async (c) => {
 
   // Issue access token
   const token = generateId() + generateId();
-  await c.env.DB
-    .prepare('INSERT INTO oauth_tokens (token, client_id, created_at) VALUES (?, ?, ?)')
+  await c.env.DB.prepare('INSERT INTO oauth_tokens (token, client_id, created_at) VALUES (?, ?, ?)')
     .bind(token, client_id, now)
     .run();
 
@@ -172,7 +170,10 @@ async function verifyPKCE(codeVerifier, codeChallenge) {
 }
 
 function esc(str) {
-  return String(str ?? '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+  return String(str ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;');
 }
 
 function authorizePage({ client_id, redirect_uri, state, code_challenge, code_challenge_method, error }) {

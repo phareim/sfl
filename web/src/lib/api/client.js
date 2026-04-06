@@ -18,7 +18,7 @@ export async function apiFetch(path, options = {}) {
   const res = await fetch(url, {
     ...options,
     headers: {
-      'Authorization': `Bearer ${apiKey}`,
+      Authorization: `Bearer ${apiKey}`,
       ...options.headers,
     },
   });

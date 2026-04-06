@@ -1,8 +1,8 @@
 import { Hono } from 'hono';
-import { generateId } from '../lib/nanoid.js';
-import { badRequest, notFound } from '../lib/errors.js';
-import { insertNote, getNote, updateNote, deleteNote } from '../db/notes.js';
 import { getIdea } from '../db/ideas.js';
+import { deleteNote, getNote, insertNote, updateNote } from '../db/notes.js';
+import { badRequest, notFound } from '../lib/errors.js';
+import { generateId } from '../lib/nanoid.js';
 
 const notes = new Hono();
 

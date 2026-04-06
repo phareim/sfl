@@ -6,7 +6,7 @@ export async function insertConnection(db, { id, from_id, to_id, label, created_
   await db
     .prepare(
       `INSERT INTO connections (id, from_id, to_id, label, created_at)
-       VALUES (?, ?, ?, ?, ?)`
+       VALUES (?, ?, ?, ?, ?)`,
     )
     .bind(id, from_id, to_id, label ?? null, created_at)
     .run();
@@ -24,8 +24,6 @@ export async function deleteConnection(db, id) {
  * Get all connections for graph view.
  */
 export async function getAllConnections(db) {
-  const { results } = await db
-    .prepare('SELECT * FROM connections ORDER BY created_at DESC')
-    .all();
+  const { results } = await db.prepare('SELECT * FROM connections ORDER BY created_at DESC').all();
   return results;
 }

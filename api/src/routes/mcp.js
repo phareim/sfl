@@ -1,8 +1,16 @@
-import { searchIdeas, listIdeas, getIdea, insertIdea, updateIdea, getIdeaConnections, getIdeaNotes } from '../db/ideas.js';
 import { insertConnection } from '../db/connections.js';
+import {
+  getIdea,
+  getIdeaConnections,
+  getIdeaNotes,
+  insertIdea,
+  listIdeas,
+  searchIdeas,
+  updateIdea,
+} from '../db/ideas.js';
 import { insertNote } from '../db/notes.js';
-import { putJson, getJson, dataKey } from '../lib/r2.js';
 import { generateId } from '../lib/nanoid.js';
+import { dataKey, getJson, putJson } from '../lib/r2.js';
 
 const PROTOCOL_VERSION = '2024-11-05';
 
@@ -44,13 +52,18 @@ const TOOLS = [
   },
   {
     name: 'list_ideas',
-    description: 'List ideas, optionally filtered by type or tag. When listing meta ideas (type="meta"), always pass the `project` parameter with the GitHub repo URL of the current working repository (detect from git remote). Meta ideas are the project backlog — check them at the start of a session to see what needs doing.',
+    description:
+      'List ideas, optionally filtered by type or tag. When listing meta ideas (type="meta"), always pass the `project` parameter with the GitHub repo URL of the current working repository (detect from git remote). Meta ideas are the project backlog — check them at the start of a session to see what needs doing.',
     inputSchema: {
       type: 'object',
       properties: {
         type: { type: 'string', description: 'Filter by type: note, page, quote, book, tweet, image, tag, meta' },
         tag: { type: 'string', description: 'Filter by tag ID or tag title' },
-        project: { type: 'string', description: 'GitHub repo URL to filter meta ideas by project (e.g. https://github.com/owner/repo). Detect from git remote of the current working directory.' },
+        project: {
+          type: 'string',
+          description:
+            'GitHub repo URL to filter meta ideas by project (e.g. https://github.com/owner/repo). Detect from git remote of the current working directory.',
+        },
         limit: { type: 'number', description: 'Max results (default 20)' },
         cursor: { type: 'string', description: 'Pagination cursor from previous response' },
       },
@@ -69,7 +82,8 @@ const TOOLS = [
   },
   {
     name: 'create_idea',
-    description: 'Create a new idea of any type (note, page, quote, book, tweet, image, tag, meta). For meta type, always include `data.project` with the GitHub repo URL of the current working repository. Meta ideas track feature/task backlog items — set status to "in_progress" when starting work, "done" when complete.',
+    description:
+      'Create a new idea of any type (note, page, quote, book, tweet, image, tag, meta). For meta type, always include `data.project` with the GitHub repo URL of the current working repository. Meta ideas track feature/task backlog items — set status to "in_progress" when starting work, "done" when complete.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -77,7 +91,11 @@ const TOOLS = [
         title: { type: 'string', description: 'Title' },
         url: { type: 'string', description: 'URL (for page/tweet types)' },
         summary: { type: 'string', description: 'Short summary' },
-        data: { type: 'object', description: 'Type-specific content blob. For meta: { project (GitHub repo URL), priority (A/B/C/D), status (draft/in_progress/done), git_commit, implementation_details }' },
+        data: {
+          type: 'object',
+          description:
+            'Type-specific content blob. For meta: { project (GitHub repo URL), priority (A/B/C/D), status (draft/in_progress/done), git_commit, implementation_details }',
+        },
       },
       required: ['type'],
     },
@@ -129,7 +147,11 @@ const TOOLS = [
         id: { type: 'string', description: 'Idea ID' },
         title: { type: 'string' },
         summary: { type: 'string' },
-        data: { type: 'object', description: 'Partial data to merge into the existing data blob. For meta ideas: { status, priority, git_commit, implementation_details, project }. Valid status values: draft, in_progress, done.' },
+        data: {
+          type: 'object',
+          description:
+            'Partial data to merge into the existing data blob. For meta ideas: { status, priority, git_commit, implementation_details, project }. Valid status values: draft, in_progress, done.',
+        },
       },
       required: ['id'],
     },
@@ -139,16 +161,14 @@ const TOOLS = [
 async function executeTool(name, args, env) {
   switch (name) {
     case 'list_tags': {
-      const { results } = await env.DB
-        .prepare(
-          `SELECT t.*, COUNT(c.id) as usage_count
+      const { results } = await env.DB.prepare(
+        `SELECT t.*, COUNT(c.id) as usage_count
            FROM ideas t
            LEFT JOIN connections c ON c.to_id = t.id AND c.label = 'tagged_with'
            WHERE t.type = 'tag'
            GROUP BY t.id
-           ORDER BY usage_count DESC, t.title ASC`
-        )
-        .all();
+           ORDER BY usage_count DESC, t.title ASC`,
+      ).all();
       return { tags: results };
     }
 
@@ -178,8 +198,8 @@ async function executeTool(name, args, env) {
               to_id: tag_id,
               label: 'tagged_with',
               created_at: now,
-            })
-          )
+            }),
+          ),
         );
       }
 

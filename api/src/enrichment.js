@@ -1,4 +1,4 @@
-import { getIdea, searchIdeas, listIdeas } from './db/ideas.js';
+import { getIdea, listIdeas, searchIdeas } from './db/ideas.js';
 import { generateId } from './lib/nanoid.js';
 import { getJson, putJson } from './lib/r2.js';
 
@@ -37,9 +37,9 @@ export async function runEnrichment(env, ideaId, mode = 'all') {
 
 async function applyTags(env, idea, description) {
   try {
-    const { results: tags } = await env.DB
-      .prepare("SELECT id, title FROM ideas WHERE type = 'tag' ORDER BY title ASC")
-      .all();
+    const { results: tags } = await env.DB.prepare(
+      "SELECT id, title FROM ideas WHERE type = 'tag' ORDER BY title ASC",
+    ).all();
 
     if (tags.length === 0) return;
 
@@ -61,11 +61,10 @@ async function applyTags(env, idea, description) {
 
     const now = Date.now();
     for (const tagId of ids) {
-      await env.DB
-        .prepare(
-          `INSERT OR IGNORE INTO connections (id, from_id, to_id, label, created_at)
-           VALUES (?, ?, ?, 'tagged_with', ?)`
-        )
+      await env.DB.prepare(
+        `INSERT OR IGNORE INTO connections (id, from_id, to_id, label, created_at)
+           VALUES (?, ?, ?, 'tagged_with', ?)`,
+      )
         .bind(generateId(), idea.id, tagId, now)
         .run();
     }
@@ -103,11 +102,10 @@ async function applyConnections(env, idea, description) {
 
     const now = Date.now();
     for (const relatedId of ids) {
-      await env.DB
-        .prepare(
-          `INSERT OR IGNORE INTO connections (id, from_id, to_id, label, created_at)
-           VALUES (?, ?, ?, 'related_to', ?)`
-        )
+      await env.DB.prepare(
+        `INSERT OR IGNORE INTO connections (id, from_id, to_id, label, created_at)
+           VALUES (?, ?, ?, 'related_to', ?)`,
+      )
         .bind(generateId(), idea.id, relatedId, now)
         .run();
     }

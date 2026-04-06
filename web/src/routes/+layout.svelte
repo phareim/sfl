@@ -1,37 +1,37 @@
 <script>
-  import { page } from '$app/stores';
-  import CaptureModal from '$lib/components/CaptureModal.svelte';
-  import { onMount } from 'svelte';
-  import { apiFetch } from '$lib/api/client.js';
+import { onMount } from 'svelte';
+import { page } from '$app/stores';
+import { apiFetch } from '$lib/api/client.js';
+import CaptureModal from '$lib/components/CaptureModal.svelte';
 
-  let captureOpen = false;
-  let navOpen = false;
-  let tags = [];
+let captureOpen = false;
+let navOpen = false;
+let tags = [];
 
-  onMount(async () => {
-    try {
-      const data = await apiFetch('/api/tags');
-      tags = data.tags ?? [];
-    } catch {
-      // Tags are non-critical; ignore errors on first load
-    }
-  });
-
-  function isActive(path) {
-    if (path === '/') {
-      return $page.url.pathname === '/' ;
-    }
-    return $page.url.pathname === path || $page.url.pathname.startsWith(path + '/');
+onMount(async () => {
+  try {
+    const data = await apiFetch('/api/tags');
+    tags = data.tags ?? [];
+  } catch {
+    // Tags are non-critical; ignore errors on first load
   }
+});
 
-  function navigate() {
-    navOpen = false;
+function isActive(path) {
+  if (path === '/') {
+    return $page.url.pathname === '/';
   }
+  return $page.url.pathname === path || $page.url.pathname.startsWith(path + '/');
+}
 
-  function openCapture() {
-    navOpen = false;
-    captureOpen = true;
-  }
+function navigate() {
+  navOpen = false;
+}
+
+function openCapture() {
+  navOpen = false;
+  captureOpen = true;
+}
 </script>
 
 <svelte:window

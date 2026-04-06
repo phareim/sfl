@@ -1,16 +1,16 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { bearerAuth } from './auth.js';
-import ideasRouter from './routes/ideas.js';
 import connectionsRouter from './routes/connections.js';
-import notesRouter, { notesStandalone } from './routes/notes.js';
-import mediaRouter, { mediaStandalone } from './routes/media.js';
-import tagsRouter from './routes/tags.js';
-import graphRouter from './routes/graph.js';
-import { handleMcpRequest } from './routes/mcp.js';
-import oauthRouter, { oauthMetadata } from './routes/oauth.js';
 import githubRouter from './routes/github.js';
+import graphRouter from './routes/graph.js';
+import ideasRouter from './routes/ideas.js';
+import { handleMcpRequest } from './routes/mcp.js';
+import mediaRouter, { mediaStandalone } from './routes/media.js';
 import messagesRouter from './routes/messages.js';
+import notesRouter, { notesStandalone } from './routes/notes.js';
+import oauthRouter, { oauthMetadata } from './routes/oauth.js';
+import tagsRouter from './routes/tags.js';
 
 const app = new Hono();
 
@@ -21,7 +21,7 @@ app.use(
     origin: '*',
     allowHeaders: ['Authorization', 'Content-Type'],
     allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  })
+  }),
 );
 
 // Auth middleware applied to all /api/* routes

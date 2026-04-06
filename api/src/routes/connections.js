@@ -1,8 +1,8 @@
 import { Hono } from 'hono';
-import { generateId } from '../lib/nanoid.js';
-import { badRequest, notFound } from '../lib/errors.js';
-import { insertConnection, getConnection, deleteConnection } from '../db/connections.js';
+import { deleteConnection, getConnection, insertConnection } from '../db/connections.js';
 import { getIdea } from '../db/ideas.js';
+import { badRequest, notFound } from '../lib/errors.js';
+import { generateId } from '../lib/nanoid.js';
 
 const connections = new Hono();
 

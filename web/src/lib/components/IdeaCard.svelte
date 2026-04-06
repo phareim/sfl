@@ -1,52 +1,52 @@
 <script>
-  import TagPill from './TagPill.svelte';
+import TagPill from './TagPill.svelte';
 
-  export let idea;
-  export let tags = [];
+export let idea;
+export let tags = [];
 
-  const TYPE_ICONS = {
-    page:   '🔗',
-    tweet:  '🐦',
-    book:   '📚',
-    quote:  '💬',
-    note:   '📝',
-    image:  '🖼️',
-    tag:    '🏷️',
-    text:   '📄',
-    video:  '▶️',
-    meta:   '🎯',
-  };
+const TYPE_ICONS = {
+  page: '🔗',
+  tweet: '🐦',
+  book: '📚',
+  quote: '💬',
+  note: '📝',
+  image: '🖼️',
+  tag: '🏷️',
+  text: '📄',
+  video: '▶️',
+  meta: '🎯',
+};
 
-  const CARD_COLORS = {
-    page:   '#60a5fa',
-    tweet:  '#34d399',
-    book:   '#fbbf24',
-    quote:  '#a78bfa',
-    note:   '#fb923c',
-    image:  '#fb7185',
-    text:   '#2dd4bf',
-    video:  '#f87171',
-    tag:    '#94a3b8',
-    meta:   '#818cf8',
-  };
+const CARD_COLORS = {
+  page: '#60a5fa',
+  tweet: '#34d399',
+  book: '#fbbf24',
+  quote: '#a78bfa',
+  note: '#fb923c',
+  image: '#fb7185',
+  text: '#2dd4bf',
+  video: '#f87171',
+  tag: '#94a3b8',
+  meta: '#818cf8',
+};
 
-  function youtubeId(url) {
-    if (!url) return null;
-    let m = url.match(/[?&]v=([\w-]{11})/);
-    if (m) return m[1];
-    m = url.match(/youtu\.be\/([\w-]{11})/);
-    if (m) return m[1];
-    m = url.match(/youtube\.com\/shorts\/([\w-]{11})/);
-    if (m) return m[1];
-    return null;
-  }
+function youtubeId(url) {
+  if (!url) return null;
+  let m = url.match(/[?&]v=([\w-]{11})/);
+  if (m) return m[1];
+  m = url.match(/youtu\.be\/([\w-]{11})/);
+  if (m) return m[1];
+  m = url.match(/youtube\.com\/shorts\/([\w-]{11})/);
+  if (m) return m[1];
+  return null;
+}
 
-  $: videoId = idea.type === 'video' ? youtubeId(idea.url) : null;
-  $: accent = CARD_COLORS[idea.type] ?? '#cbd5e1';
+$: videoId = idea.type === 'video' ? youtubeId(idea.url) : null;
+$: accent = CARD_COLORS[idea.type] ?? '#cbd5e1';
 
-  function formatDate(ms) {
-    return new Date(ms).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
-  }
+function formatDate(ms) {
+  return new Date(ms).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+}
 </script>
 
 {#if idea.type === 'tag'}

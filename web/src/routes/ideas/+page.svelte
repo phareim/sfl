@@ -1,52 +1,52 @@
 <script>
-  import { onMount } from 'svelte';
-  import { listIdeas, searchIdeas } from '$lib/api/ideas.js';
-  import IdeaCard from '$lib/components/IdeaCard.svelte';
-  import SearchBar from '$lib/components/SearchBar.svelte';
+import { onMount } from 'svelte';
+import { listIdeas, searchIdeas } from '$lib/api/ideas.js';
+import IdeaCard from '$lib/components/IdeaCard.svelte';
+import SearchBar from '$lib/components/SearchBar.svelte';
 
-  let ideas = [];
-  let loading = true;
-  let error = null;
-  let nextCursor = null;
-  let searchQuery = '';
-  let filterType = '';
+let ideas = [];
+let loading = true;
+let error = null;
+let nextCursor = null;
+let searchQuery = '';
+let filterType = '';
 
-  const TYPES = ['', 'page', 'video', 'tweet', 'book', 'quote', 'note', 'image', 'text', 'tag', 'meta'];
+const TYPES = ['', 'page', 'video', 'tweet', 'book', 'quote', 'note', 'image', 'text', 'tag', 'meta'];
 
-  async function load(reset = true) {
-    loading = true;
-    error = null;
-    try {
-      if (searchQuery) {
-        const data = await searchIdeas(searchQuery);
-        ideas = data.ideas;
-        nextCursor = null;
-      } else {
-        const params = {};
-        if (filterType) params.type = filterType;
-        if (!reset && nextCursor) params.cursor = nextCursor;
-        const data = await listIdeas(params);
-        ideas = reset ? data.ideas : [...ideas, ...data.ideas];
-        nextCursor = data.nextCursor;
-      }
-    } catch (e) {
-      error = e.message;
-    } finally {
-      loading = false;
+async function load(reset = true) {
+  loading = true;
+  error = null;
+  try {
+    if (searchQuery) {
+      const data = await searchIdeas(searchQuery);
+      ideas = data.ideas;
+      nextCursor = null;
+    } else {
+      const params = {};
+      if (filterType) params.type = filterType;
+      if (!reset && nextCursor) params.cursor = nextCursor;
+      const data = await listIdeas(params);
+      ideas = reset ? data.ideas : [...ideas, ...data.ideas];
+      nextCursor = data.nextCursor;
     }
+  } catch (e) {
+    error = e.message;
+  } finally {
+    loading = false;
   }
+}
 
-  onMount(() => load());
+onMount(() => load());
 
-  function onSearch(e) {
-    searchQuery = e.detail;
-    load();
-  }
+function onSearch(e) {
+  searchQuery = e.detail;
+  load();
+}
 
-  function onTypeChange() {
-    searchQuery = '';
-    load();
-  }
+function onTypeChange() {
+  searchQuery = '';
+  load();
+}
 </script>
 
 <div class="toolbar">

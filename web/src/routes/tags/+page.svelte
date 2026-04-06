@@ -1,31 +1,32 @@
 <script>
-  import { onMount } from 'svelte';
-  import { apiFetch } from '$lib/api/client.js';
-  import { goto } from '$app/navigation';
+import { onMount } from 'svelte';
+import { goto } from '$app/navigation';
+import { apiFetch } from '$lib/api/client.js';
 
-  let tags = [];
-  let loading = true;
-  let error = null;
+let tags = [];
+let loading = true;
+let error = null;
 
-  onMount(async () => {
-    try {
-      const data = await apiFetch('/api/tags');
-      tags = data.tags;
-    } catch (e) {
-      error = e.message;
-    } finally {
-      loading = false;
-    }
-  });
-
-  function maxCount() {
-    return tags.reduce((m, t) => Math.max(m, t.usage_count), 1);
+onMount(async () => {
+  try {
+    const data = await apiFetch('/api/tags');
+    tags = data.tags;
+  } catch (e) {
+    error = e.message;
+  } finally {
+    loading = false;
   }
+});
 
-  function fontSize(count) {
-    const min = 0.85, max = 2.2;
-    return min + (count / maxCount()) * (max - min);
-  }
+function maxCount() {
+  return tags.reduce((m, t) => Math.max(m, t.usage_count), 1);
+}
+
+function fontSize(count) {
+  const min = 0.85,
+    max = 2.2;
+  return min + (count / maxCount()) * (max - min);
+}
 </script>
 
 <h1>Tags</h1>

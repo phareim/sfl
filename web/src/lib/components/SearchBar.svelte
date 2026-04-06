@@ -1,23 +1,23 @@
 <script>
-  import { createEventDispatcher } from 'svelte';
+import { createEventDispatcher } from 'svelte';
 
-  export let value = '';
+export let value = '';
 
-  const dispatch = createEventDispatcher();
+const dispatch = createEventDispatcher();
 
-  let timer;
+let timer;
 
-  function onInput(e) {
-    value = e.target.value;
-    clearTimeout(timer);
-    timer = setTimeout(() => dispatch('search', value), 300);
-  }
+function onInput(e) {
+  value = e.target.value;
+  clearTimeout(timer);
+  timer = setTimeout(() => dispatch('search', value), 300);
+}
 
-  function onSubmit(e) {
-    e.preventDefault();
-    clearTimeout(timer);
-    dispatch('search', value);
-  }
+function onSubmit(e) {
+  e.preventDefault();
+  clearTimeout(timer);
+  dispatch('search', value);
+}
 </script>
 
 <form class="search-bar" on:submit={onSubmit}>

@@ -1,6 +1,6 @@
 <script>
-  export let tag;
-  export let onClick = null;
+export let tag;
+export let onClick = null;
 </script>
 
 <button

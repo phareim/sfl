@@ -1,42 +1,42 @@
 <script>
-  import { page } from '$app/stores';
-  import { getIdea, deleteIdea } from '$lib/api/ideas.js';
-  import IdeaDetail from '$lib/components/IdeaDetail.svelte';
-  import { goto } from '$app/navigation';
+import { goto } from '$app/navigation';
+import { page } from '$app/stores';
+import { deleteIdea, getIdea } from '$lib/api/ideas.js';
+import IdeaDetail from '$lib/components/IdeaDetail.svelte';
 
-  let idea = null;
-  let data = {};
-  let connections = [];
-  let notes = [];
-  let media = [];
-  let loading = true;
-  let error = null;
+let idea = null;
+let data = {};
+let connections = [];
+let notes = [];
+let media = [];
+let loading = true;
+let error = null;
 
-  async function loadIdea(id) {
-    loading = true;
-    error = null;
-    idea = null;
-    try {
-      const result = await getIdea(id);
-      idea = result.idea;
-      data = result.data;
-      connections = result.connections;
-      notes = result.notes;
-      media = result.media;
-    } catch (e) {
-      error = e.message;
-    } finally {
-      loading = false;
-    }
+async function loadIdea(id) {
+  loading = true;
+  error = null;
+  idea = null;
+  try {
+    const result = await getIdea(id);
+    idea = result.idea;
+    data = result.data;
+    connections = result.connections;
+    notes = result.notes;
+    media = result.media;
+  } catch (e) {
+    error = e.message;
+  } finally {
+    loading = false;
   }
+}
 
-  $: loadIdea($page.params.id);
+$: loadIdea($page.params.id);
 
-  async function handleDelete() {
-    if (!confirm('Delete this idea?')) return;
-    await deleteIdea(idea.id);
-    goto('/ideas');
-  }
+async function handleDelete() {
+  if (!confirm('Delete this idea?')) return;
+  await deleteIdea(idea.id);
+  goto('/ideas');
+}
 </script>
 
 {#if loading}

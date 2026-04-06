@@ -1,9 +1,7 @@
 import { apiFetch } from './client.js';
 
 export function listIdeas(params = {}) {
-  const qs = new URLSearchParams(
-    Object.fromEntries(Object.entries(params).filter(([, v]) => v != null))
-  ).toString();
+  const qs = new URLSearchParams(Object.fromEntries(Object.entries(params).filter(([, v]) => v != null))).toString();
   return apiFetch(`/api/ideas${qs ? `?${qs}` : ''}`);
 }
 

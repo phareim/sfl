@@ -1,8 +1,8 @@
 import { Hono } from 'hono';
-import { generateId } from '../lib/nanoid.js';
-import { putBinary, deleteObject, mediaKey } from '../lib/r2.js';
-import { badRequest, notFound } from '../lib/errors.js';
 import { getIdea } from '../db/ideas.js';
+import { badRequest, notFound } from '../lib/errors.js';
+import { generateId } from '../lib/nanoid.js';
+import { deleteObject, mediaKey, putBinary } from '../lib/r2.js';
 
 const media = new Hono();
 
@@ -26,11 +26,10 @@ media.post('/', async (c) => {
 
   await putBinary(c.env.R2, key, bytes, file.type);
 
-  await c.env.DB
-    .prepare(
-      `INSERT INTO media (id, idea_id, r2_key, filename, mime_type, size_bytes, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`
-    )
+  await c.env.DB.prepare(
+    `INSERT INTO media (id, idea_id, r2_key, filename, mime_type, size_bytes, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+  )
     .bind(id, idea_id, key, file.name, file.type, bytes.byteLength, Date.now())
     .run();
 
@@ -79,11 +78,10 @@ media.post('/fetch', async (c) => {
 
   await putBinary(c.env.R2, key, bytes, contentType);
 
-  await c.env.DB
-    .prepare(
-      `INSERT INTO media (id, idea_id, r2_key, filename, mime_type, size_bytes, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`
-    )
+  await c.env.DB.prepare(
+    `INSERT INTO media (id, idea_id, r2_key, filename, mime_type, size_bytes, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+  )
     .bind(id, idea_id, key, filename, contentType, bytes.byteLength, Date.now())
     .run();
 

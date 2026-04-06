@@ -1,21 +1,21 @@
 <script>
-  import { onMount } from 'svelte';
+import { onMount } from 'svelte';
 
-  let apiUrl = '';
-  let apiKey = '';
-  let saved = false;
+let apiUrl = '';
+let apiKey = '';
+let saved = false;
 
-  onMount(() => {
-    apiUrl = localStorage.getItem('sfl_api_url') ?? '';
-    apiKey = localStorage.getItem('sfl_api_key') ?? '';
-  });
+onMount(() => {
+  apiUrl = localStorage.getItem('sfl_api_url') ?? '';
+  apiKey = localStorage.getItem('sfl_api_key') ?? '';
+});
 
-  function save() {
-    localStorage.setItem('sfl_api_url', apiUrl.trim());
-    localStorage.setItem('sfl_api_key', apiKey.trim());
-    saved = true;
-    setTimeout(() => (saved = false), 2000);
-  }
+function save() {
+  localStorage.setItem('sfl_api_url', apiUrl.trim());
+  localStorage.setItem('sfl_api_key', apiKey.trim());
+  saved = true;
+  setTimeout(() => (saved = false), 2000);
+}
 </script>
 
 <h1>Settings</h1>

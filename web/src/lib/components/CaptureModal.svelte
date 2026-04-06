@@ -1,126 +1,134 @@
 <script>
-  import { createEventDispatcher } from 'svelte';
-  import { createIdea } from '../api/ideas.js';
-  import { createConnection } from '../api/connections.js';
-  import { apiFetch } from '../api/client.js';
-  import GitHubRepoPicker from './GitHubRepoPicker.svelte';
+import { createEventDispatcher } from 'svelte';
+import { apiFetch } from '../api/client.js';
+import { createConnection } from '../api/connections.js';
+import { createIdea } from '../api/ideas.js';
+import GitHubRepoPicker from './GitHubRepoPicker.svelte';
 
-  export let open = false;
-  export let tags = [];
+export let open = false;
+export let tags = [];
 
-  const dispatch = createEventDispatcher();
+const dispatch = createEventDispatcher();
 
-  let type = 'note';
-  let title = '';
-  let url = '';
-  let summary = '';
-  let content = '';
-  let selectedTags = [];
-  let saving = false;
-  let savingStatus = '';
-  let error = null;
-  let imageFile = null;   // File object when user picks a local file
-  let metaPriority = 'B';
-  let metaStatus = 'draft';
-  let metaProject = 'https://github.com/phareim/sfl';
+let type = 'note';
+let title = '';
+let url = '';
+let summary = '';
+let content = '';
+let selectedTags = [];
+let saving = false;
+let savingStatus = '';
+let error = null;
+let imageFile = null; // File object when user picks a local file
+let metaPriority = 'B';
+let metaStatus = 'draft';
+let metaProject = 'https://github.com/phareim/sfl';
 
-  function onFileChange(e) {
-    imageFile = e.target.files[0] ?? null;
-    if (imageFile && !title) title = imageFile.name.replace(/\.[^.]+$/, '');
-  }
+function onFileChange(e) {
+  imageFile = e.target.files[0] ?? null;
+  if (imageFile && !title) title = imageFile.name.replace(/\.[^.]+$/, '');
+}
 
-  const TYPES = ['note', 'page', 'quote', 'book', 'tweet', 'image', 'text', 'meta'];
+const TYPES = ['note', 'page', 'quote', 'book', 'tweet', 'image', 'text', 'meta'];
 
-  function buildData() {
-    switch (type) {
-      case 'note': return { content };
-      case 'page': return { url, selected_text: content };
-      case 'quote': return { text: content, attribution: title };
-      case 'tweet': return { url, text: content };
-      case 'book': return { title };
-      case 'image': return { source_url: url, caption: content };
-      case 'meta': return {
+function buildData() {
+  switch (type) {
+    case 'note':
+      return { content };
+    case 'page':
+      return { url, selected_text: content };
+    case 'quote':
+      return { text: content, attribution: title };
+    case 'tweet':
+      return { url, text: content };
+    case 'book':
+      return { title };
+    case 'image':
+      return { source_url: url, caption: content };
+    case 'meta':
+      return {
         project: metaProject || 'https://github.com/phareim/sfl',
         priority: metaPriority || 'B',
         status: metaStatus || 'draft',
         git_commit: null,
         implementation_details: '',
       };
-      default: return { content };
-    }
+    default:
+      return { content };
   }
+}
 
-  async function save() {
-    saving = true;
-    error = null;
-    try {
-      savingStatus = 'Saving…';
-      const { idea } = await createIdea({
-        type,
-        title: title || null,
-        url: url || null,
-        summary: summary || content.slice(0, 200) || null,
-        data: buildData(),
-      });
+async function save() {
+  saving = true;
+  error = null;
+  try {
+    savingStatus = 'Saving…';
+    const { idea } = await createIdea({
+      type,
+      title: title || null,
+      url: url || null,
+      summary: summary || content.slice(0, 200) || null,
+      data: buildData(),
+    });
 
-      // Upload image to R2 if this is an image type
-      if (type === 'image') {
-        if (imageFile) {
-          savingStatus = 'Uploading image…';
-          const form = new FormData();
-          form.append('file', imageFile);
-          await apiFetch(`/api/ideas/${idea.id}/media`, { method: 'POST', body: form });
-        } else if (url) {
-          savingStatus = 'Fetching image…';
-          await apiFetch(`/api/ideas/${idea.id}/media/fetch`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ url }),
-          });
-        }
+    // Upload image to R2 if this is an image type
+    if (type === 'image') {
+      if (imageFile) {
+        savingStatus = 'Uploading image…';
+        const form = new FormData();
+        form.append('file', imageFile);
+        await apiFetch(`/api/ideas/${idea.id}/media`, { method: 'POST', body: form });
+      } else if (url) {
+        savingStatus = 'Fetching image…';
+        await apiFetch(`/api/ideas/${idea.id}/media/fetch`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url }),
+        });
       }
-
-      // Attach tags
-      savingStatus = 'Tagging…';
-      for (const tag of selectedTags) {
-        await createConnection({ from_id: idea.id, to_id: tag.id, label: 'tagged_with' });
-      }
-
-      dispatch('saved', idea);
-      reset();
-    } catch (e) {
-      error = e.message;
-    } finally {
-      saving = false;
-      savingStatus = '';
     }
-  }
 
-  function reset() {
-    type = 'note';
-    title = '';
-    url = '';
-    summary = '';
-    content = '';
-    selectedTags = [];
-    imageFile = null;
-    metaPriority = 'B';
-    metaStatus = 'draft';
-    metaProject = 'https://github.com/phareim/sfl';
-    open = false;
-  }
-
-  function toggleTag(tag) {
-    if (selectedTags.find((t) => t.id === tag.id)) {
-      selectedTags = selectedTags.filter((t) => t.id !== tag.id);
-    } else {
-      selectedTags = [...selectedTags, tag];
+    // Attach tags
+    savingStatus = 'Tagging…';
+    for (const tag of selectedTags) {
+      await createConnection({ from_id: idea.id, to_id: tag.id, label: 'tagged_with' });
     }
-  }
 
-  function isSelected(tag) {
-    return !!selectedTags.find((t) => t.id === tag.id);
+    dispatch('saved', idea);
+    reset();
+  } catch (e) {
+    error = e.message;
+  } finally {
+    saving = false;
+    savingStatus = '';
   }
+}
+
+function reset() {
+  type = 'note';
+  title = '';
+  url = '';
+  summary = '';
+  content = '';
+  selectedTags = [];
+  imageFile = null;
+  metaPriority = 'B';
+  metaStatus = 'draft';
+  metaProject = 'https://github.com/phareim/sfl';
+  open = false;
+}
+
+function toggleTag(tag) {
+  if (selectedTags.find((t) => t.id === tag.id)) {
+    selectedTags = selectedTags.filter((t) => t.id !== tag.id);
+  } else {
+    selectedTags = [...selectedTags, tag];
+  }
+}
+
+function isSelected(tag) {
+  return !!selectedTags.find((t) => t.id === tag.id);
+}
 </script>
 
 {#if open}

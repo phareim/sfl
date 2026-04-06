@@ -39,8 +39,7 @@ graph.get('/:id/neighbors', async (c) => {
   let neighbors = [];
   if (neighborIds.size > 0) {
     const placeholders = [...neighborIds].map(() => '?').join(', ');
-    const { results } = await c.env.DB
-      .prepare(`SELECT id, type, title, url FROM ideas WHERE id IN (${placeholders})`)
+    const { results } = await c.env.DB.prepare(`SELECT id, type, title, url FROM ideas WHERE id IN (${placeholders})`)
       .bind(...neighborIds)
       .all();
     neighbors = results;

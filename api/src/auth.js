@@ -18,10 +18,7 @@ export function bearerAuth() {
     }
 
     // OAuth-issued token
-    const row = await c.env.DB
-      .prepare('SELECT 1 FROM oauth_tokens WHERE token = ?')
-      .bind(token)
-      .first();
+    const row = await c.env.DB.prepare('SELECT 1 FROM oauth_tokens WHERE token = ?').bind(token).first();
 
     if (!row) return unauthorized();
 

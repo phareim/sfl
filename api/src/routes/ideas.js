@@ -1,21 +1,21 @@
 import { Hono } from 'hono';
-import { generateId } from '../lib/nanoid.js';
-import { putJson, getJson, deleteObject, dataKey } from '../lib/r2.js';
-import { badRequest, notFound, serverError } from '../lib/errors.js';
-import { enrichIdea, runEnrichment } from '../enrichment.js';
+import { getAllConnections } from '../db/connections.js';
 import {
-  insertIdea,
+  deleteIdea,
   getIdea,
   getIdeaByUrl,
-  listIdeas,
-  updateIdea,
-  deleteIdea,
-  searchIdeas,
   getIdeaConnections,
-  getIdeaNotes,
   getIdeaMedia,
+  getIdeaNotes,
+  insertIdea,
+  listIdeas,
+  searchIdeas,
+  updateIdea,
 } from '../db/ideas.js';
-import { getAllConnections } from '../db/connections.js';
+import { enrichIdea, runEnrichment } from '../enrichment.js';
+import { badRequest, notFound, serverError } from '../lib/errors.js';
+import { generateId } from '../lib/nanoid.js';
+import { dataKey, deleteObject, getJson, putJson } from '../lib/r2.js';
 
 const ideas = new Hono();
 
@@ -154,10 +154,7 @@ ideas.post('/:id/enrich', async (c) => {
 
   await runEnrichment(c.env, id, mode);
 
-  const [connections, data] = await Promise.all([
-    getIdeaConnections(c.env.DB, id),
-    getJson(c.env.R2, idea.r2_key),
-  ]);
+  const [connections, data] = await Promise.all([getIdeaConnections(c.env.DB, id), getJson(c.env.R2, idea.r2_key)]);
   return c.json({ connections, data: data ?? {} });
 });
 
@@ -199,7 +196,9 @@ async function extractArticleText(url) {
     .on('nav, header, footer, aside, script, style, noscript', {
       element(el) {
         skipDepth++;
-        el.onEndTag(() => { skipDepth--; });
+        el.onEndTag(() => {
+          skipDepth--;
+        });
       },
     })
     .on('p', {
@@ -234,10 +233,7 @@ ideas.delete('/:id', async (c) => {
   if (!existing) return notFound('Idea not found');
 
   // Delete all media from R2
-  const { results: mediaRows } = await c.env.DB
-    .prepare('SELECT r2_key FROM media WHERE idea_id = ?')
-    .bind(id)
-    .all();
+  const { results: mediaRows } = await c.env.DB.prepare('SELECT r2_key FROM media WHERE idea_id = ?').bind(id).all();
 
   await Promise.all([
     deleteObject(c.env.R2, existing.r2_key),

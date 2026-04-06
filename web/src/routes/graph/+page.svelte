@@ -1,24 +1,24 @@
 <script>
-  import { onMount } from 'svelte';
-  import { apiFetch } from '$lib/api/client.js';
-  import GraphView from '$lib/components/GraphView.svelte';
+import { onMount } from 'svelte';
+import { apiFetch } from '$lib/api/client.js';
+import GraphView from '$lib/components/GraphView.svelte';
 
-  let nodes = [];
-  let edges = [];
-  let loading = true;
-  let error = null;
+let nodes = [];
+let edges = [];
+let loading = true;
+let error = null;
 
-  onMount(async () => {
-    try {
-      const data = await apiFetch('/api/graph');
-      nodes = data.nodes;
-      edges = data.edges;
-    } catch (e) {
-      error = e.message;
-    } finally {
-      loading = false;
-    }
-  });
+onMount(async () => {
+  try {
+    const data = await apiFetch('/api/graph');
+    nodes = data.nodes;
+    edges = data.edges;
+  } catch (e) {
+    error = e.message;
+  } finally {
+    loading = false;
+  }
+});
 </script>
 
 <div class="graph-page">
