@@ -42,6 +42,8 @@ Three signals point to "neglected" rather than "frozen" or "dead":
 ## Recent activity
 
 - **2026-05-25 (council G2 + G7).** CLI grew `sfl tags {list,rename,merge}` and `sfl meta {board,stale}`; Worker grew `PUT /api/tags/:id`, `POST /api/tags/:id/merge`, `GET /api/meta/digest`. Chat backend's daily brief now renders a "Shipped this week" section from the digest. No schema change; FTS resync runs off existing triggers. Cleanup utility at `api/scripts/cleanup-tags.js`.
+- **2026-05-25 (council G3).** FTS now covers bodies. `ideas.body` column added, `ideas_fts` rebuilt as `(title, summary, body)`. 161/403 rows backfilled (the other 242 are tag/meta/short-blob rows with no projectable body). Backfill script `api/scripts/backfill-body.mjs`. Live-write path keeps body in sync via `projectBody(kind, blob, notesRow?)` in `src/db/ideas.js`.
+- **2026-05-25 (council G8).** Saved-searches cron live. `POST/GET/DELETE /api/searches`, daily `[triggers] crons = ["0 6 * * *"]` runs each saved query against the FTS, diffs against `saved_search_hits`, and POSTs new matches to `sleeper.phareim.no/sfl-hook/saved-search-hit` (Bearer `SFL_WEBHOOK_SECRET`). Killswitch: `SAVED_SEARCH_ENABLED` (currently `"false"` — flip to `"true"` to enable). CLI: `sfl search {list,save,delete}`.
 
 ## If work resumes — top 3 to file as `sfl meta`
 

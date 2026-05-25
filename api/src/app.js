@@ -11,6 +11,7 @@ import mediaRouter, { mediaStandalone } from './routes/media.js';
 import messagesRouter from './routes/messages.js';
 import notesRouter, { notesStandalone } from './routes/notes.js';
 import oauthRouter, { oauthMetadata } from './routes/oauth.js';
+import searchesRouter from './routes/searches.js';
 import tagsRouter from './routes/tags.js';
 
 const app = new Hono();
@@ -60,6 +61,9 @@ app.route('/api/github', githubRouter);
 
 // Messages (chat)
 app.route('/api/messages', messagesRouter);
+
+// Saved searches (G8)
+app.route('/api/searches', searchesRouter);
 
 // MCP Streamable HTTP endpoint
 app.use('/mcp', bearerAuth());

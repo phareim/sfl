@@ -52,6 +52,15 @@ async function apiPut(config, path, body) {
   return res.json();
 }
 
+async function apiDelete(config, path) {
+  const res = await fetch(`${config.url}${path}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${config.key}` },
+  });
+  if (!res.ok) throw new Error(`API error ${res.status}: ${await res.text()}`);
+  return res.json();
+}
+
 async function resolveTag(config, ref) {
   // Accept either an exact id or a title. Title resolution: exact match first,
   // then case-insensitive. Ambiguous case-insensitive matches bail.
@@ -528,6 +537,47 @@ async function cmdIdeasSearch(config, args = []) {
   console.log();
 }
 
+// --- search commands (G8 saved searches) ---
+
+async function cmdSearchList(config) {
+  const { searches } = await api(config, '/api/searches');
+  if (!searches?.length) {
+    console.log('No saved searches.');
+    return;
+  }
+  const idW = 5;
+  const labelW = 24;
+  console.log(`\nSaved searches (${searches.length})\n`);
+  console.log(`  ${'ID'.padEnd(idW)} ${'LABEL'.padEnd(labelW)} QUERY`);
+  for (const s of searches) {
+    console.log(`  ${String(s.id).padEnd(idW)} ${(s.label ?? '').slice(0, labelW).padEnd(labelW)} ${s.query}`);
+  }
+  console.log();
+}
+
+async function cmdSearchSave(config, args) {
+  const { positional } = parseArgs(args);
+  const label = positional[0];
+  const query = positional.slice(1).join(' ');
+  if (!label || !query) {
+    console.error('Usage: sfl search save <label> <query…>');
+    process.exit(1);
+  }
+  const res = await apiPost(config, '/api/searches', { label, query });
+  console.log(`Saved [${res.id}] ${res.label}: ${res.query}`);
+}
+
+async function cmdSearchDelete(config, args) {
+  const { positional } = parseArgs(args);
+  const id = positional[0];
+  if (!id) {
+    console.error('Usage: sfl search delete <id>');
+    process.exit(1);
+  }
+  const res = await apiDelete(config, `/api/searches/${encodeURIComponent(id)}`);
+  console.log(`Deleted saved search ${res.deleted}`);
+}
+
 // --- Dispatch ---
 
 const cmd = process.argv[2];
@@ -587,6 +637,24 @@ if (cmd === 'meta' && sub === 'all') {
     console.error(`Error: ${err.message}`);
     process.exit(1);
   });
+} else if (cmd === 'search' && (sub === undefined || sub === 'list')) {
+  const config = loadConfig();
+  cmdSearchList(config).catch((err) => {
+    console.error(`Error: ${err.message}`);
+    process.exit(1);
+  });
+} else if (cmd === 'search' && sub === 'save') {
+  const config = loadConfig();
+  cmdSearchSave(config, process.argv.slice(4)).catch((err) => {
+    console.error(`Error: ${err.message}`);
+    process.exit(1);
+  });
+} else if (cmd === 'search' && sub === 'delete') {
+  const config = loadConfig();
+  cmdSearchDelete(config, process.argv.slice(4)).catch((err) => {
+    console.error(`Error: ${err.message}`);
+    process.exit(1);
+  });
 } else if (cmd === 'ideas' && sub === 'search') {
   const config = loadConfig();
   cmdIdeasSearch(config, process.argv.slice(4)).catch((err) => {
@@ -614,4 +682,7 @@ if (cmd === 'meta' && sub === 'all') {
   console.log('  tags merge <src> <into>    Merge src tag into into tag');
   console.log('  ideas            List ideas [--type TYPE] [--tag TAG] [--limit N] [--status STATUS] [--cursor TS]');
   console.log('  ideas search <q> Full-text search [--type TYPE] [--limit N]');
+  console.log('  search           List saved searches (alias: search list)');
+  console.log('  search save <label> <query…>  Save a search');
+  console.log('  search delete <id>            Delete a saved search');
 }
