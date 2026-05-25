@@ -9,6 +9,7 @@ import {
   getIdeaNotes,
   insertIdea,
   listIdeas,
+  projectBody,
   searchIdeas,
   updateIdea,
 } from '../db/ideas.js';
@@ -72,6 +73,10 @@ ideas.post('/', async (c) => {
   // For meta ideas, store project URL in D1 url for efficient filtering
   const resolvedUrl = url ?? (type === 'meta' ? (data?.project ?? null) : null);
 
+  // Note ideas store body in the notes table; at POST time there's no notes
+  // row yet, so this is "" unless a body field was inlined into `data`.
+  const projectedBody = projectBody(type, data ?? {});
+
   // Write metadata row to D1
   await insertIdea(c.env.DB, {
     id,
@@ -79,6 +84,7 @@ ideas.post('/', async (c) => {
     title: title ?? null,
     url: resolvedUrl,
     summary: summary ?? null,
+    body: projectedBody,
     r2_key,
     created_at: now,
     updated_at: now,
@@ -128,11 +134,25 @@ ideas.put('/:id', async (c) => {
     await putJson(c.env.R2, existing.r2_key, data);
   }
 
+  // Re-project body when the blob (or, for notes, the joined notes row)
+  // might affect FTS. For notes, the body lives in a joined notes row, so we
+  // re-fetch.
+  let projectedBody;
+  if (data !== undefined) {
+    let notesRow;
+    if (existing.type === 'note') {
+      const notes = await getIdeaNotes(c.env.DB, id);
+      notesRow = notes[0];
+    }
+    projectedBody = projectBody(existing.type, data, notesRow);
+  }
+
   // Update D1 row
   await updateIdea(c.env.DB, id, {
     title: title !== undefined ? title : existing.title,
     url: url !== undefined ? url : existing.url,
     summary: summary !== undefined ? summary : existing.summary,
+    body: projectedBody,
     updated_at: now,
   });
 

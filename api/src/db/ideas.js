@@ -2,16 +2,70 @@
  * D1 query helpers for the ideas table.
  */
 
+const MAX_BODY_BYTES = 1024 * 1024; // 1 MB cap to keep FTS sane.
+
+/**
+ * Project the per-kind R2 blob (and, for notes, the joined notes row) into a
+ * single plain-text body string for FTS5 indexing. Always returns a string;
+ * truncates at 1 MB.
+ *
+ * @param {string} kind     ideas.type
+ * @param {object} blob     parsed R2 JSON blob (`{}` if missing)
+ * @param {{body?:string}=} notesRow first joined notes row, for kind='note'
+ */
+export function projectBody(kind, blob, notesRow) {
+  blob = blob ?? {};
+  let body = '';
+
+  switch (kind) {
+    case 'note': {
+      body = notesRow?.body ?? blob.body ?? blob.text ?? '';
+      break;
+    }
+    case 'page': {
+      body = blob.content_md ?? blob.html_excerpt ?? blob.text ?? '';
+      break;
+    }
+    case 'post':
+    case 'tweet': {
+      const t = blob.text ?? '';
+      const q = blob.quoted_text ?? blob.quoted?.text ?? '';
+      body = q ? `${t}\n${q}` : t;
+      break;
+    }
+    case 'book': {
+      const a = blob.author ?? '';
+      const d = blob.description ?? '';
+      body = a && d ? `${a}\n${d}` : a || d;
+      break;
+    }
+    case 'quote': {
+      body = blob.text ?? '';
+      break;
+    }
+    case 'video': {
+      body = blob.transcript ?? blob.description ?? '';
+      break;
+    }
+    default:
+      body = '';
+  }
+
+  if (typeof body !== 'string') body = String(body ?? '');
+  if (body.length > MAX_BODY_BYTES) body = body.slice(0, MAX_BODY_BYTES);
+  return body;
+}
+
 /**
  * Insert a new idea row.
  */
-export async function insertIdea(db, { id, type, title, url, summary, r2_key, created_at, updated_at }) {
+export async function insertIdea(db, { id, type, title, url, summary, body, r2_key, created_at, updated_at }) {
   await db
     .prepare(
-      `INSERT INTO ideas (id, type, title, url, summary, r2_key, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO ideas (id, type, title, url, summary, body, r2_key, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
-    .bind(id, type, title ?? null, url ?? null, summary ?? null, r2_key, created_at, updated_at)
+    .bind(id, type, title ?? null, url ?? null, summary ?? null, body ?? null, r2_key, created_at, updated_at)
     .run();
 }
 
@@ -93,12 +147,31 @@ export async function listIdeas(db, { type, tag, url, limit = 20, cursor } = {})
 }
 
 /**
- * Update an idea row.
+ * Update an idea row. `body` is updated when provided (undefined leaves it
+ * untouched; null clears it).
  */
-export async function updateIdea(db, id, { title, url, summary, updated_at }) {
+export async function updateIdea(db, id, { title, url, summary, body, updated_at }) {
+  if (body === undefined) {
+    await db
+      .prepare(`UPDATE ideas SET title = ?, url = ?, summary = ?, updated_at = ? WHERE id = ?`)
+      .bind(title ?? null, url ?? null, summary ?? null, updated_at, id)
+      .run();
+  } else {
+    await db
+      .prepare(`UPDATE ideas SET title = ?, url = ?, summary = ?, body = ?, updated_at = ? WHERE id = ?`)
+      .bind(title ?? null, url ?? null, summary ?? null, body ?? null, updated_at, id)
+      .run();
+  }
+}
+
+/**
+ * Update only the body column on an idea row. Touches updated_at so the FTS
+ * trigger fires.
+ */
+export async function setIdeaBody(db, id, body) {
   await db
-    .prepare(`UPDATE ideas SET title = ?, url = ?, summary = ?, updated_at = ? WHERE id = ?`)
-    .bind(title ?? null, url ?? null, summary ?? null, updated_at, id)
+    .prepare('UPDATE ideas SET body = ?, updated_at = ? WHERE id = ?')
+    .bind(body ?? null, Date.now(), id)
     .run();
 }
 
@@ -110,7 +183,7 @@ export async function deleteIdea(db, id) {
 }
 
 /**
- * Full-text search across title + summary.
+ * Full-text search across title + summary + body.
  * Returns matching idea rows.
  */
 export async function searchIdeas(db, query, { limit = 20 } = {}) {

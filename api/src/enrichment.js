@@ -1,4 +1,4 @@
-import { getIdea, listIdeas, searchIdeas } from './db/ideas.js';
+import { getIdea, getIdeaNotes, listIdeas, projectBody, searchIdeas, setIdeaBody } from './db/ideas.js';
 import { generateId } from './lib/nanoid.js';
 import { getJson, putJson } from './lib/r2.js';
 
@@ -134,7 +134,17 @@ async function formatAsMarkdown(env, idea, data) {
     const formatted = response?.response?.trim();
     if (!formatted) return;
 
-    await putJson(env.R2, idea.r2_key, { ...data, text: formatted, markdown: true });
+    const updated = { ...data, text: formatted, markdown: true };
+    await putJson(env.R2, idea.r2_key, updated);
+
+    // Re-project body so FTS picks up the formatted text.
+    let notesRow;
+    if (idea.type === 'note') {
+      const notes = await getIdeaNotes(env.DB, idea.id);
+      notesRow = notes[0];
+    }
+    const body = projectBody(idea.type, updated, notesRow);
+    await setIdeaBody(env.DB, idea.id, body);
   } catch {
     // Best-effort
   }

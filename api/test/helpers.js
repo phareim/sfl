@@ -133,13 +133,15 @@ export function createMockDB() {
 
     // INSERT INTO ideas
     if (s.startsWith('INSERT INTO ideas')) {
-      const [id, type, title, url, summary, r2_key, created_at, updated_at] = params;
+      // New signature: (id, type, title, url, summary, body, r2_key, created_at, updated_at)
+      const [id, type, title, url, summary, body, r2_key, created_at, updated_at] = params;
       tables.ideas.push({
         id,
         type,
         title,
         url,
         summary,
+        body,
         r2_key,
         created_at,
         updated_at,
@@ -180,7 +182,31 @@ export function createMockDB() {
       return { all: rows };
     }
 
-    // UPDATE ideas
+    // UPDATE ideas SET body = ?, updated_at = ? WHERE id = ?  (setIdeaBody)
+    if (s.startsWith('UPDATE ideas SET body = ?, updated_at = ? WHERE id = ?')) {
+      const [body, updated_at, id] = params;
+      const idx = tables.ideas.findIndex((r) => r.id === id);
+      if (idx >= 0) Object.assign(tables.ideas[idx], { body, updated_at });
+      return { run: true };
+    }
+
+    // UPDATE ideas SET title=?, url=?, summary=?, body=?, updated_at=? WHERE id=?
+    if (s.startsWith('UPDATE ideas SET title = ?, url = ?, summary = ?, body = ?, updated_at = ? WHERE id = ?')) {
+      const [title, url, summary, body, updated_at, id] = params;
+      const idx = tables.ideas.findIndex((r) => r.id === id);
+      if (idx >= 0) Object.assign(tables.ideas[idx], { title, url, summary, body, updated_at });
+      return { run: true };
+    }
+
+    // UPDATE ideas SET title=?, url=?, summary=?, updated_at=? WHERE id=?
+    if (s.startsWith('UPDATE ideas SET title = ?, url = ?, summary = ?, updated_at = ? WHERE id = ?')) {
+      const [title, url, summary, updated_at, id] = params;
+      const idx = tables.ideas.findIndex((r) => r.id === id);
+      if (idx >= 0) Object.assign(tables.ideas[idx], { title, url, summary, updated_at });
+      return { run: true };
+    }
+
+    // UPDATE ideas (legacy / fallthrough)
     if (s.startsWith('UPDATE ideas')) {
       const [title, url, summary, updated_at, id] = params;
       const idx = tables.ideas.findIndex((r) => r.id === id);
@@ -221,7 +247,10 @@ export function createMockDB() {
       const limit = Number(params[1]) || 20;
       const rows = tables.ideas
         .filter(
-          (r) => (r.title && r.title.toLowerCase().includes(q)) || (r.summary && r.summary.toLowerCase().includes(q)),
+          (r) =>
+            (r.title && r.title.toLowerCase().includes(q)) ||
+            (r.summary && r.summary.toLowerCase().includes(q)) ||
+            (r.body && r.body.toLowerCase().includes(q)),
         )
         .slice(0, limit);
       return { all: rows };

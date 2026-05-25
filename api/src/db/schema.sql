@@ -4,6 +4,7 @@ CREATE TABLE IF NOT EXISTS ideas (
   title      TEXT,
   url        TEXT,
   summary    TEXT,
+  body       TEXT,
   r2_key     TEXT,
   created_at INTEGER NOT NULL,
   updated_at INTEGER NOT NULL
@@ -74,20 +75,37 @@ CREATE TABLE IF NOT EXISTS messages (
 CREATE INDEX IF NOT EXISTS idx_messages_created ON messages(created_at DESC);
 
 CREATE VIRTUAL TABLE IF NOT EXISTS ideas_fts USING fts5(
-  title, summary, content=ideas, content_rowid=rowid
+  title, summary, body, content=ideas, content_rowid=rowid
 );
 
 CREATE TRIGGER IF NOT EXISTS ideas_fts_insert AFTER INSERT ON ideas BEGIN
-  INSERT INTO ideas_fts(rowid, title, summary) VALUES (new.rowid, new.title, new.summary);
+  INSERT INTO ideas_fts(rowid, title, summary, body) VALUES (new.rowid, new.title, new.summary, new.body);
 END;
 
 CREATE TRIGGER IF NOT EXISTS ideas_fts_update AFTER UPDATE ON ideas BEGIN
-  INSERT INTO ideas_fts(ideas_fts, rowid, title, summary)
-    VALUES ('delete', old.rowid, old.title, old.summary);
-  INSERT INTO ideas_fts(rowid, title, summary) VALUES (new.rowid, new.title, new.summary);
+  INSERT INTO ideas_fts(ideas_fts, rowid, title, summary, body)
+    VALUES ('delete', old.rowid, old.title, old.summary, old.body);
+  INSERT INTO ideas_fts(rowid, title, summary, body) VALUES (new.rowid, new.title, new.summary, new.body);
 END;
 
 CREATE TRIGGER IF NOT EXISTS ideas_fts_delete AFTER DELETE ON ideas BEGIN
-  INSERT INTO ideas_fts(ideas_fts, rowid, title, summary)
-    VALUES ('delete', old.rowid, old.title, old.summary);
+  INSERT INTO ideas_fts(ideas_fts, rowid, title, summary, body)
+    VALUES ('delete', old.rowid, old.title, old.summary, old.body);
 END;
+
+-- G8: saved searches
+CREATE TABLE IF NOT EXISTS saved_searches (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  query      TEXT NOT NULL,
+  label      TEXT NOT NULL,
+  created_at INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS saved_search_hits (
+  id               INTEGER PRIMARY KEY AUTOINCREMENT,
+  saved_search_id  INTEGER NOT NULL REFERENCES saved_searches(id) ON DELETE CASCADE,
+  idea_id          TEXT NOT NULL,
+  seen_at          INTEGER NOT NULL,
+  UNIQUE(saved_search_id, idea_id)
+);
+CREATE INDEX IF NOT EXISTS idx_saved_search_hits_search ON saved_search_hits(saved_search_id);
