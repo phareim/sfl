@@ -22,7 +22,7 @@ binding = "AI"
 #   SAVED_SEARCH_ENABLED — killswitch; flip to "true" to enable the daily cron push
 #   SFL_WEBHOOK_SECRET is set via: wrangler secret put SFL_WEBHOOK_SECRET
 WEBHOOK_URL = "https://sleeper.phareim.no/sfl-hook/saved-search-hit"
-SAVED_SEARCH_ENABLED = "false"
+SAVED_SEARCH_ENABLED = "true"
 
 [triggers]
 # 06:00 UTC daily, ~30 min before the daily brief on Sleeper.
