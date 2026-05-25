@@ -52,6 +52,22 @@ async function apiPut(config, path, body) {
   return res.json();
 }
 
+async function resolveTag(config, ref) {
+  // Accept either an exact id or a title. Title resolution: exact match first,
+  // then case-insensitive. Ambiguous case-insensitive matches bail.
+  const { tags } = await api(config, '/api/tags');
+  const byId = tags.find((t) => t.id === ref);
+  if (byId) return byId;
+  const exact = tags.find((t) => t.title === ref);
+  if (exact) return exact;
+  const ci = tags.filter((t) => t.title.toLowerCase() === ref.toLowerCase());
+  if (ci.length === 1) return ci[0];
+  if (ci.length > 1) {
+    throw new Error(`ambiguous tag "${ref}" — matches: ${ci.map((t) => t.title).join(', ')}`);
+  }
+  throw new Error(`tag "${ref}" not found`);
+}
+
 // --- Git detection ---
 
 function getProjectUrl() {
@@ -253,6 +269,187 @@ async function cmdMetaUpdate(config, args) {
   }
 }
 
+// --- tags commands ---
+
+async function cmdTagsList(config) {
+  const { tags } = await api(config, '/api/tags');
+  if (!tags.length) {
+    console.log('No tags.');
+    return;
+  }
+  const sorted = [...tags].sort((a, b) => (b.usage_count ?? 0) - (a.usage_count ?? 0));
+  console.log(`\nTags (${tags.length} total)\n`);
+  const idW = 12;
+  const countW = 6;
+  console.log(`  ${'ID'.padEnd(idW)} ${'COUNT'.padEnd(countW)} TITLE`);
+  for (const t of sorted) {
+    const id = String(t.id).slice(0, idW).padEnd(idW);
+    const count = String(t.usage_count ?? 0).padEnd(countW);
+    console.log(`  ${id} ${count} ${t.title}`);
+  }
+  console.log();
+}
+
+async function cmdTagsRename(config, args) {
+  const { positional } = parseArgs(args);
+  const ref = positional[0];
+  const newTitle = positional.slice(1).join(' ');
+  if (!ref || !newTitle) {
+    console.error('Usage: sfl tags rename <id-or-title> <new-title>');
+    process.exit(1);
+  }
+  const tag = await resolveTag(config, ref);
+  const res = await apiPut(config, `/api/tags/${tag.id}`, { title: newTitle });
+  console.log(`Renamed: ${tag.title} → ${res.title}`);
+}
+
+async function cmdTagsMerge(config, args) {
+  const { positional } = parseArgs(args);
+  const sourceRef = positional[0];
+  const intoRef = positional[1];
+  if (!sourceRef || !intoRef) {
+    console.error('Usage: sfl tags merge <source-id-or-title> <into-id-or-title>');
+    process.exit(1);
+  }
+  const source = await resolveTag(config, sourceRef);
+  const into = await resolveTag(config, intoRef);
+  const before = { source: source.usage_count ?? 0, into: into.usage_count ?? 0 };
+  const res = await apiPost(config, `/api/tags/${source.id}/merge`, { into: into.id });
+  // Re-fetch to confirm new usage count.
+  const after = await api(config, '/api/tags');
+  const intoAfter = after.tags.find((t) => t.id === into.id);
+  console.log(
+    `Merged ${source.title} (${before.source}) → ${into.title} (${before.into} → ${intoAfter?.usage_count ?? '?'})`,
+  );
+  console.log(`  rewired=${res.rewired}  deduped=${res.deduped}`);
+}
+
+// --- meta board / stale commands ---
+
+function truncate(s, n) {
+  s = String(s ?? '');
+  return s.length <= n ? s : s.slice(0, n - 1) + '…';
+}
+
+function projectShort(p) {
+  if (!p) return '-';
+  return String(p)
+    .replace(/^https?:\/\//, '')
+    .replace(/^github\.com\//, '');
+}
+
+async function cmdMetaBoard(config) {
+  const { ideas } = await api(config, '/api/ideas?type=meta');
+  if (!ideas.length) {
+    console.log('No meta ideas.');
+    return;
+  }
+  const full = await Promise.all(ideas.map((idea) => api(config, `/api/ideas/${idea.id}`)));
+
+  const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+  const now = Date.now();
+
+  const byProject = new Map();
+  for (const item of full) {
+    const project = projectShort(item.data?.project ?? item.idea?.url ?? '(no project)');
+    const status = item.data?.status ?? 'draft';
+    const updatedAt = item.idea?.updated_at ?? 0;
+    if (status === 'done' && updatedAt < now - SEVEN_DAYS_MS) continue;
+    if (!byProject.has(project)) {
+      byProject.set(project, { draft: [], in_progress: [], done: [], lastUpdated: 0 });
+    }
+    const bucket = byProject.get(project);
+    const col = status === 'in_progress' ? 'in_progress' : status === 'done' ? 'done' : 'draft';
+    bucket[col].push({ title: item.idea?.title ?? '(untitled)', updated_at: updatedAt });
+    if (updatedAt > bucket.lastUpdated) bucket.lastUpdated = updatedAt;
+  }
+
+  const rows = [...byProject.entries()].sort((a, b) => b[1].lastUpdated - a[1].lastUpdated);
+
+  // Layout: 120 cols total → project 28, three columns of 30 each = 118.
+  const projW = 28;
+  const colW = 30;
+  const header = `  ${'PROJECT'.padEnd(projW)} ${'DRAFT'.padEnd(colW)} ${'IN_PROGRESS'.padEnd(colW)} DONE(7d)`;
+  console.log(`\nMeta board (${rows.length} projects)\n`);
+  console.log(header);
+  console.log(`  ${'-'.repeat(projW)} ${'-'.repeat(colW)} ${'-'.repeat(colW)} ${'-'.repeat(colW)}`);
+
+  function renderCell(items) {
+    const count = items.length;
+    if (count === 0) return '.';
+    const sorted = [...items].sort((a, b) => b.updated_at - a.updated_at);
+    const top = truncate(sorted[0].title, colW - 6);
+    if (count === 1) return `${count}  ${top}`;
+    return `${count}  ${top}`;
+  }
+
+  for (const [project, bucket] of rows) {
+    const p = truncate(project, projW).padEnd(projW);
+    const c1 = renderCell(bucket.draft).padEnd(colW);
+    const c2 = renderCell(bucket.in_progress).padEnd(colW);
+    const c3 = renderCell(bucket.done).padEnd(colW);
+    console.log(`  ${p} ${c1} ${c2} ${c3}`);
+    // Second line for projects that have a second active title in any column
+    const secondLine = ['draft', 'in_progress', 'done'].map((k) => {
+      const items = [...bucket[k]].sort((a, b) => b.updated_at - a.updated_at);
+      return items.length >= 2 ? truncate(items[1].title, colW - 3) : '';
+    });
+    if (secondLine.some((s) => s)) {
+      console.log(
+        `  ${' '.repeat(projW)} ${secondLine[0].padEnd(colW)} ${secondLine[1].padEnd(colW)} ${secondLine[2]}`,
+      );
+    }
+  }
+  console.log();
+}
+
+async function cmdMetaStale(config, args) {
+  const { flags } = parseArgs(args);
+  const days = Number(flags.days ?? 30);
+  if (!Number.isFinite(days) || days <= 0) {
+    console.error('Usage: sfl meta stale [--days N]');
+    process.exit(1);
+  }
+  const cutoff = Date.now() - days * 24 * 60 * 60 * 1000;
+
+  const { ideas } = await api(config, '/api/ideas?type=meta');
+  if (!ideas.length) {
+    console.log('nothing stale');
+    return;
+  }
+  const full = await Promise.all(ideas.map((idea) => api(config, `/api/ideas/${idea.id}`)));
+
+  const stale = full
+    .filter((item) => {
+      const status = item.data?.status ?? 'draft';
+      if (status !== 'draft' && status !== 'in_progress') return false;
+      const updatedAt = item.idea?.updated_at ?? 0;
+      return updatedAt < cutoff;
+    })
+    .map((item) => ({
+      wordly_id: item.data?.wordly_id ?? item.idea?.id?.slice(0, 8) ?? '?',
+      project: projectShort(item.data?.project ?? item.idea?.url),
+      status: item.data?.status ?? 'draft',
+      age_days: Math.floor((Date.now() - (item.idea?.updated_at ?? 0)) / (24 * 60 * 60 * 1000)),
+      title: item.idea?.title ?? '(untitled)',
+    }))
+    .sort((a, b) => b.age_days - a.age_days);
+
+  if (!stale.length) {
+    console.log('nothing stale');
+    return;
+  }
+
+  const idW = 24;
+  const projW = 28;
+  const statusW = 12;
+  for (const row of stale) {
+    console.log(
+      `  ${truncate(row.wordly_id, idW).padEnd(idW)} ${truncate(row.project, projW).padEnd(projW)} ${row.status.padEnd(statusW)} ${String(row.age_days).padStart(3)}d  ${row.title}`,
+    );
+  }
+}
+
 // --- ideas command ---
 
 async function cmdIdeas(config, args = []) {
@@ -342,6 +539,18 @@ if (cmd === 'meta' && sub === 'all') {
     console.error(`Error: ${err.message}`);
     process.exit(1);
   });
+} else if (cmd === 'meta' && sub === 'board') {
+  const config = loadConfig();
+  cmdMetaBoard(config).catch((err) => {
+    console.error(`Error: ${err.message}`);
+    process.exit(1);
+  });
+} else if (cmd === 'meta' && sub === 'stale') {
+  const config = loadConfig();
+  cmdMetaStale(config, process.argv.slice(4)).catch((err) => {
+    console.error(`Error: ${err.message}`);
+    process.exit(1);
+  });
 } else if (cmd === 'meta' && sub === 'add') {
   const config = loadConfig();
   cmdMetaAdd(config, process.argv.slice(4)).catch((err) => {
@@ -357,6 +566,24 @@ if (cmd === 'meta' && sub === 'all') {
 } else if (cmd === 'meta') {
   const config = loadConfig();
   cmdMeta(config, process.argv.slice(3)).catch((err) => {
+    console.error(`Error: ${err.message}`);
+    process.exit(1);
+  });
+} else if (cmd === 'tags' && (sub === undefined || sub === 'list')) {
+  const config = loadConfig();
+  cmdTagsList(config).catch((err) => {
+    console.error(`Error: ${err.message}`);
+    process.exit(1);
+  });
+} else if (cmd === 'tags' && sub === 'rename') {
+  const config = loadConfig();
+  cmdTagsRename(config, process.argv.slice(4)).catch((err) => {
+    console.error(`Error: ${err.message}`);
+    process.exit(1);
+  });
+} else if (cmd === 'tags' && sub === 'merge') {
+  const config = loadConfig();
+  cmdTagsMerge(config, process.argv.slice(4)).catch((err) => {
     console.error(`Error: ${err.message}`);
     process.exit(1);
   });
@@ -378,8 +605,13 @@ if (cmd === 'meta' && sub === 'all') {
   console.log('Commands:');
   console.log('  meta             List meta ideas for the current git project');
   console.log('  meta all         List all meta ideas across all projects');
+  console.log('  meta board       Project × status grid (draft / in_progress / done-7d)');
+  console.log('  meta stale       List stale draft/in_progress metas [--days N, default 30]');
   console.log('  meta add         Create a new meta idea for the current git project');
   console.log('  meta update <id> Update a meta idea (--title, --priority, --status, --summary)');
+  console.log('  tags             List all tags with usage counts (alias: tags list)');
+  console.log('  tags rename <ref> <title>  Rename a tag (id or title accepted)');
+  console.log('  tags merge <src> <into>    Merge src tag into into tag');
   console.log('  ideas            List ideas [--type TYPE] [--tag TAG] [--limit N] [--status STATUS] [--cursor TS]');
   console.log('  ideas search <q> Full-text search [--type TYPE] [--limit N]');
 }

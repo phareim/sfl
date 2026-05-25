@@ -39,6 +39,10 @@ Three signals point to "neglected" rather than "frozen" or "dead":
 
 "Dead" is wrong: production is running and every downstream depends on it. No replacement.
 
+## Recent activity
+
+- **2026-05-25 (council G2 + G7).** CLI grew `sfl tags {list,rename,merge}` and `sfl meta {board,stale}`; Worker grew `PUT /api/tags/:id`, `POST /api/tags/:id/merge`, `GET /api/meta/digest`. Chat backend's daily brief now renders a "Shipped this week" section from the digest. No schema change; FTS resync runs off existing triggers. Cleanup utility at `api/scripts/cleanup-tags.js`.
+
 ## If work resumes — top 3 to file as `sfl meta`
 
 These are the loose threads visible from the audit, not a roadmap:

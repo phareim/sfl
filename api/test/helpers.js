@@ -45,6 +45,92 @@ export function createMockDB() {
   function matchQuery(sql, params) {
     const s = sql.trim().replace(/\s+/g, ' ');
 
+    // SELECT id, type, title FROM ideas WHERE id = ?  (tag merge / rename lookups)
+    if (s.startsWith('SELECT id, type, title FROM ideas WHERE id = ?')) {
+      const row = tables.ideas.find((r) => r.id === params[0]) ?? null;
+      return { first: row };
+    }
+
+    // SELECT id FROM ideas WHERE type='tag' AND title=? AND id != ?  (rename clash)
+    if (s.includes("FROM ideas WHERE type = 'tag' AND title = ? AND id != ?")) {
+      const row = tables.ideas.find((r) => r.type === 'tag' && r.title === params[0] && r.id !== params[1]) ?? null;
+      return { first: row };
+    }
+
+    // SELECT id, title, url, updated_at, r2_key FROM ideas WHERE type='meta' AND updated_at >= ?
+    if (s.includes("FROM ideas WHERE type = 'meta' AND updated_at >= ?")) {
+      const since = Number(params[0]);
+      const rows = tables.ideas
+        .filter((r) => r.type === 'meta' && r.updated_at >= since)
+        .sort((a, b) => b.updated_at - a.updated_at);
+      return { all: rows };
+    }
+
+    // SELECT t.*, COUNT(c.id) … FROM ideas t LEFT JOIN connections c …
+    if (s.includes('LEFT JOIN connections c ON c.to_id = t.id')) {
+      const tags = tables.ideas.filter((r) => r.type === 'tag');
+      const out = tags.map((t) => ({
+        ...t,
+        usage_count: tables.connections.filter((c) => c.to_id === t.id && c.label === 'tagged_with').length,
+      }));
+      out.sort((a, b) => b.usage_count - a.usage_count || (a.title ?? '').localeCompare(b.title ?? ''));
+      return { all: out };
+    }
+
+    // SELECT id, from_id FROM connections WHERE to_id = ? AND label='tagged_with'
+    if (s.includes('FROM connections WHERE to_id = ? AND label =')) {
+      const rows = tables.connections.filter((c) => c.to_id === params[0] && c.label === 'tagged_with');
+      return { all: rows };
+    }
+
+    // UPDATE connections SET to_id = ? WHERE id = ? AND label='tagged_with'
+    if (s.startsWith('UPDATE connections SET to_id = ?')) {
+      const [newToId, connId] = params;
+      const idx = tables.connections.findIndex((c) => c.id === connId);
+      if (idx < 0) return { run: true, changes: 0 };
+      // Simulate UNIQUE(from_id, to_id, label) — if a connection already exists
+      // with the same triple, throw the way D1 would.
+      const from = tables.connections[idx].from_id;
+      const dupe = tables.connections.find(
+        (c) => c.from_id === from && c.to_id === newToId && c.label === 'tagged_with' && c.id !== connId,
+      );
+      if (dupe) {
+        const err = new Error('UNIQUE constraint failed: connections.from_id, connections.to_id, connections.label');
+        throw err;
+      }
+      tables.connections[idx].to_id = newToId;
+      return { run: true, changes: 1 };
+    }
+
+    // DELETE FROM connections WHERE id = ?
+    if (s.startsWith('DELETE FROM connections WHERE id = ?')) {
+      tables.connections = tables.connections.filter((c) => c.id !== params[0]);
+      return { run: true };
+    }
+
+    // DELETE FROM connections WHERE to_id = ? AND label='tagged_with'
+    if (s.startsWith('DELETE FROM connections WHERE to_id = ?')) {
+      tables.connections = tables.connections.filter((c) => !(c.to_id === params[0] && c.label === 'tagged_with'));
+      return { run: true };
+    }
+
+    // UPDATE ideas SET title=?, updated_at=? WHERE id=? AND type='tag'
+    if (s.startsWith("UPDATE ideas SET title = ?, updated_at = ? WHERE id = ? AND type = 'tag'")) {
+      const [title, updated_at, id] = params;
+      const idx = tables.ideas.findIndex((r) => r.id === id && r.type === 'tag');
+      if (idx >= 0) Object.assign(tables.ideas[idx], { title, updated_at });
+      return { run: true };
+    }
+
+    // DELETE FROM ideas WHERE id = ? AND type = 'tag'
+    if (s.startsWith("DELETE FROM ideas WHERE id = ? AND type = 'tag'")) {
+      const id = params[0];
+      // Cascade simulation:
+      tables.ideas = tables.ideas.filter((r) => !(r.id === id && r.type === 'tag'));
+      tables.connections = tables.connections.filter((c) => c.from_id !== id && c.to_id !== id);
+      return { run: true };
+    }
+
     // INSERT INTO ideas
     if (s.startsWith('INSERT INTO ideas')) {
       const [id, type, title, url, summary, r2_key, created_at, updated_at] = params;
@@ -150,16 +236,28 @@ export function createMockDB() {
     prepare(sql) {
       return {
         bind(...params) {
-          const result = matchQuery(sql, params);
+          // matchQuery may throw (used for UNIQUE constraint sim); rethrow lazily
+          // from first/all/run so callers see the same shape as D1.
+          let result;
+          let thrown;
+          try {
+            result = matchQuery(sql, params);
+          } catch (err) {
+            thrown = err;
+            result = {};
+          }
           return {
             async first() {
+              if (thrown) throw thrown;
               return result.first ?? null;
             },
             async all() {
+              if (thrown) throw thrown;
               return { results: result.all ?? [] };
             },
             async run() {
-              return {};
+              if (thrown) throw thrown;
+              return { meta: { changes: result.changes ?? 1 } };
             },
           };
         },

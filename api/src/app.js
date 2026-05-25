@@ -6,6 +6,7 @@ import githubRouter from './routes/github.js';
 import graphRouter from './routes/graph.js';
 import ideasRouter from './routes/ideas.js';
 import { handleMcpRequest } from './routes/mcp.js';
+import metaRouter from './routes/meta.js';
 import mediaRouter, { mediaStandalone } from './routes/media.js';
 import messagesRouter from './routes/messages.js';
 import notesRouter, { notesStandalone } from './routes/notes.js';
@@ -47,6 +48,9 @@ app.route('/api/media', mediaStandalone);
 
 // Tags
 app.route('/api/tags', tagsRouter);
+
+// Meta board + digest
+app.route('/api/meta', metaRouter);
 
 // Graph
 app.route('/api/graph', graphRouter);

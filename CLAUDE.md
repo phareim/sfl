@@ -48,6 +48,24 @@ No test framework, linter, or formatter is configured.
 - **No unnecessary comments.** Comments explain *why*, not *what*. Self-evident code needs no annotation.
 - **The API schema is the source of truth.** When in doubt about data shape, refer to `api/src/db/schema.sql` and the route handlers in `api/src/routes/`.
 
+## Tag + meta primitives (G2 + G7, 2026-05-25)
+
+The Worker exposes tag-merge / rename and a per-project meta digest:
+
+- `PUT /api/tags/:id { title }` — rename a tag; 400/404/409 as expected
+- `POST /api/tags/:id/merge { into }` — rewires every `tagged_with` edge from `:id` to `into`, dedupes via row-by-row UPDATE (UNIQUE collision → DELETE the loser; counted as `deduped`), then deletes the source tag. Returns `{ merged, into, rewired, deduped }`. FTS resyncs automatically via existing triggers.
+- `GET /api/meta/digest?range=7d|14d|30d` — done-this-period grouped by project; brief consumer in `~/chat/backend/src/services/briefBuilder.ts` renders this as a "Shipped this week" section.
+
+CLI commands (`cli/bin/sfl.js`):
+
+- `sfl tags` / `sfl tags list` — usage-sorted inventory
+- `sfl tags rename <id-or-title> <new-title>`
+- `sfl tags merge <source-id-or-title> <into-id-or-title>` — accepts title with case-insensitive fallback; bails on ambiguity
+- `sfl meta board` — project × {draft, in_progress, done-7d} grid, sorted by most-recent activity
+- `sfl meta stale [--days N]` — draft/in_progress metas older than N days (default 30); prints `nothing stale` on empty
+
+One-shot cleanup utility at `api/scripts/cleanup-tags.js` — `--dry-run` (default) prints the planned merges/renames against live inventory; `--apply` executes.
+
 ## Workflow rules
 
 - **Before committing:** run tests and clean up the code (remove debug logs, tidy formatting).
