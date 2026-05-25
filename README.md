@@ -1,5 +1,7 @@
 # SFL — Sleeper For Life
 
+> **Status: neglected.** Production at `sfl.hareim.no` is stable and every downstream service is happy, but the repo itself has been silent since `2026-04-17`. See [`STATUS.md`](./STATUS.md) for the asset inventory, the downstream contract scan, and the three loose threads worth picking up if work resumes.
+
 Personal idea-capture tool. Everything becomes an **idea** — web pages, quotes, images, tweets, books, notes, conversations. Ideas connect to each other as a graph, support annotations, and tags are themselves ideas.
 
 Deploys entirely to **Cloudflare** (Worker + Pages + D1 + R2). Single-user, JavaScript. Pushes to `master` deploy automatically via GitHub Actions.
