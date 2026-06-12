@@ -23,7 +23,7 @@ export function projectBody(kind, blob, notesRow) {
       break;
     }
     case 'page': {
-      body = blob.content_md ?? blob.html_excerpt ?? blob.text ?? '';
+      body = blob.content_md ?? blob.html_excerpt ?? blob.text ?? blob.description ?? '';
       break;
     }
     case 'post':

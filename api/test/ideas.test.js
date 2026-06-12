@@ -164,6 +164,23 @@ describe('Ideas', () => {
     expect(json.idea.type).toBe('quote');
   });
 
+  it('projects page meta description into the FTS body', async () => {
+    const res = await req('/api/ideas', {
+      method: 'POST',
+      body: {
+        type: 'page',
+        title: 'Article',
+        url: 'https://meta.example.com',
+        data: { url: 'https://meta.example.com', description: 'a thorough look at burrowing owls' },
+      },
+    });
+    expect(res.status).toBe(201);
+    const { idea } = await res.json();
+
+    const row = env.DB._tables.ideas.find((r) => r.id === idea.id);
+    expect(row.body).toBe('a thorough look at burrowing owls');
+  });
+
   it('search requires q parameter', async () => {
     const res = await req('/api/ideas/search');
     expect(res.status).toBe(400);

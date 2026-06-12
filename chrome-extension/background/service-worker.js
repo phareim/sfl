@@ -150,8 +150,39 @@ async function extractPostText(tabId, tabUrl) {
   return '';
 }
 
+/**
+ * Extract page metadata (description, og:* tags, author, canonical) by
+ * injecting into the page. Returns {} when extraction is impossible
+ * (e.g. chrome:// pages).
+ */
+async function extractPageMeta(tabId) {
+  try {
+    const [{ result }] = await chrome.scripting.executeScript({
+      target: { tabId },
+      func: () => {
+        const meta = (sel) => document.querySelector(sel)?.content?.trim() || null;
+        const out = {
+          description: meta('meta[property="og:description"]') ?? meta('meta[name="description"]'),
+          image: meta('meta[property="og:image"]'),
+          site_name: meta('meta[property="og:site_name"]'),
+          author: meta('meta[name="author"]') ?? meta('meta[property="article:author"]'),
+          published_at: meta('meta[property="article:published_time"]') ?? meta('meta[name="date"]'),
+          canonical_url: document.querySelector('link[rel="canonical"]')?.href || null,
+          lang: document.documentElement.lang || null,
+        };
+        for (const k of Object.keys(out)) if (!out[k]) delete out[k];
+        return out;
+      },
+    });
+    return result ?? {};
+  } catch {
+    return {};
+  }
+}
+
 async function handleSavePage(info, tab) {
   const video = detectVideo(tab.url);
+  const meta = await extractPageMeta(tab.id);
 
   if (video.isVideo) {
     const title = tab.title.replace(/\s*[-–|]\s*(YouTube|TikTok)\s*$/, '').trim() || tab.title;
@@ -159,12 +190,14 @@ async function handleSavePage(info, tab) {
       type: 'video',
       title,
       url: tab.url,
-      summary: title,
+      summary: meta.description?.slice(0, 200) ?? title,
       data: {
         url: tab.url,
         platform: video.platform,
         video_id: video.video_id,
         page_title: tab.title,
+        description: meta.description ?? null,
+        thumbnail: meta.image ?? null,
       },
     });
     return idea;
@@ -196,10 +229,11 @@ async function handleSavePage(info, tab) {
     type: 'page',
     title: tab.title,
     url: tab.url,
-    summary: tab.title,
+    summary: meta.description?.slice(0, 200) ?? tab.title,
     data: {
       url: tab.url,
       title: tab.title,
+      ...meta,
     },
   });
   return idea;
@@ -245,11 +279,24 @@ async function handleSaveImage(info, tab) {
   return idea;
 }
 
+/**
+ * Find a tag by title (case-insensitive) or create it.
+ * Returns the tag idea row.
+ */
+async function ensureTag(title) {
+  const wanted = title.trim();
+  const data = await apiGet('/api/tags');
+  const existing = (data?.tags ?? []).find((t) => t.title?.toLowerCase() === wanted.toLowerCase());
+  if (existing) return existing;
+  const { idea } = await apiPost('/api/ideas', { type: 'tag', title: wanted });
+  return idea;
+}
+
 // Handle messages from popup/content scripts
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'SAVE_IDEA') {
     apiPost('/api/ideas', message.payload)
-      .then(({ idea }) => sendResponse({ ok: true, idea }))
+      .then((resp) => sendResponse({ ok: true, idea: resp.idea, existing: !!resp.existing }))
       .catch((err) => sendResponse({ ok: false, error: err.message }));
     return true; // keep channel open for async response
   }
@@ -258,6 +305,20 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     apiGet('/api/tags')
       .then((data) => sendResponse({ ok: true, tags: data?.tags ?? [] }))
       .catch(() => sendResponse({ ok: true, tags: [] }));
+    return true;
+  }
+
+  if (message.type === 'GET_PAGE_META') {
+    extractPageMeta(message.tabId)
+      .then((meta) => sendResponse({ ok: true, meta }))
+      .catch(() => sendResponse({ ok: true, meta: {} }));
+    return true;
+  }
+
+  if (message.type === 'ENSURE_TAG') {
+    ensureTag(message.title)
+      .then((tag) => sendResponse({ ok: true, tag }))
+      .catch((err) => sendResponse({ ok: false, error: err.message }));
     return true;
   }
 
@@ -275,7 +336,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'CREATE_CONNECTION') {
     apiPost('/api/connections', message.payload)
       .then(({ connection }) => sendResponse({ ok: true, connection }))
-      .catch((err) => sendResponse({ ok: false, error: err.message }));
+      .catch((err) => {
+        // Re-tagging an already-saved idea is a no-op, not a failure.
+        if (/already exists/i.test(err.message)) {
+          sendResponse({ ok: true, connection: null });
+        } else {
+          sendResponse({ ok: false, error: err.message });
+        }
+      });
     return true;
   }
 });

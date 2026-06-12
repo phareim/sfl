@@ -32,7 +32,9 @@ function detectSocialPost(url) {
 
 let tags = [];
 let selectedTags = new Set();
+let newTagTitles = new Set();
 let metaProjects = [];
+let pageMeta = {};
 
 async function getConfig() {
   return new Promise((res) =>
@@ -184,22 +186,69 @@ async function init() {
     }
   });
 
-  // Load tags
-  const tagsResp = await new Promise((res) =>
-    chrome.runtime.sendMessage({ type: 'GET_TAGS' }, res)
-  );
+  // Load tags and page metadata in parallel
+  const [tagsResp, metaResp] = await Promise.all([
+    new Promise((res) => chrome.runtime.sendMessage({ type: 'GET_TAGS' }, res)),
+    new Promise((res) => chrome.runtime.sendMessage({ type: 'GET_PAGE_META', tabId: tab.id }, res)),
+  ]);
   tags = tagsResp?.tags ?? [];
+  pageMeta = metaResp?.meta ?? {};
   renderTags();
+
+  const filterEl = document.getElementById('tag-filter');
+  filterEl.addEventListener('input', () => renderTags(filterEl.value));
+  filterEl.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    const wanted = filterEl.value.trim().replace(/^#/, '');
+    if (!wanted) return;
+    const match = tags.find((t) => t.title?.toLowerCase() === wanted.toLowerCase());
+    if (match) {
+      selectedTags.add(match.id);
+    } else {
+      newTagTitles.add(wanted);
+    }
+    filterEl.value = '';
+    renderTags();
+  });
 }
 
-function renderTags() {
+const TAG_DISPLAY_CAP = 24;
+
+function renderTags(filter = '') {
   const list = document.getElementById('tag-list');
   list.innerHTML = '';
-  for (const tag of tags) {
+  const needle = filter.trim().replace(/^#/, '').toLowerCase();
+
+  // Pending new tags first, shown selected; click removes them
+  for (const title of newTagTitles) {
     const btn = document.createElement('button');
     btn.type = 'button';
-    btn.className = 'tag-btn' + (selectedTags.has(tag.id) ? ' selected' : '');
+    btn.className = 'tag-btn selected new';
+    btn.textContent = '#' + title;
+    btn.title = 'New tag — will be created on save';
+    btn.addEventListener('click', () => {
+      newTagTitles.delete(title);
+      renderTags(document.getElementById('tag-filter').value);
+    });
+    list.appendChild(btn);
+  }
+
+  // Existing tags arrive usage-sorted from the API; cap the unfiltered list,
+  // but always show every selected tag
+  const visible = tags.filter(
+    (t) => !needle || t.title?.toLowerCase().includes(needle)
+  );
+  let shown = 0;
+  for (const tag of visible) {
+    const isSelected = selectedTags.has(tag.id);
+    if (!needle && shown >= TAG_DISPLAY_CAP && !isSelected) continue;
+    shown++;
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'tag-btn' + (isSelected ? ' selected' : '');
     btn.textContent = '#' + (tag.title ?? tag.id);
+    if (tag.usage_count) btn.title = `${tag.usage_count} idea${tag.usage_count === 1 ? '' : 's'}`;
     btn.addEventListener('click', () => {
       if (selectedTags.has(tag.id)) {
         selectedTags.delete(tag.id);
@@ -207,6 +256,31 @@ function renderTags() {
         selectedTags.add(tag.id);
       }
       btn.classList.toggle('selected', selectedTags.has(tag.id));
+    });
+    list.appendChild(btn);
+  }
+
+  if (!needle && tags.length > shown) {
+    const more = document.createElement('span');
+    more.className = 'tag-more';
+    more.textContent = `+${tags.length - shown} more — type to filter`;
+    list.appendChild(more);
+  }
+
+  // Offer to create the typed tag when nothing matches it exactly
+  const exact =
+    !needle ||
+    tags.some((t) => t.title?.toLowerCase() === needle) ||
+    [...newTagTitles].some((t) => t.toLowerCase() === needle);
+  if (!exact) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'tag-btn create';
+    btn.textContent = `+ create #${filter.trim().replace(/^#/, '')}`;
+    btn.addEventListener('click', () => {
+      newTagTitles.add(filter.trim().replace(/^#/, ''));
+      document.getElementById('tag-filter').value = '';
+      renderTags();
     });
     list.appendChild(btn);
   }
@@ -231,24 +305,27 @@ document.getElementById('save-form').addEventListener('submit', async (e) => {
   let ideaUrl = url || null;
 
   switch (type) {
-    case 'page':  data = { url, title }; break;
+    case 'page':  data = { url, title, ...pageMeta }; break;
     case 'video': data = {
       url,
       platform: video.platform ?? 'youtube',
       video_id: video.video_id ?? null,
       page_title: title,
+      description: pageMeta.description ?? null,
+      thumbnail: pageMeta.image ?? null,
     }; break;
     case 'quote':
       data = {
         text: content,
         source_url: url,
+        page_title: title || null,
         attribution: document.getElementById('attribution').value || null,
       };
       // No top-level url: URL dedup would return the existing idea for this
       // page and silently discard the quote text.
       ideaUrl = null;
       break;
-    case 'note':  data = { content }; break;
+    case 'note':  data = { text: content }; break;
     case 'tweet': data = {
       url, text: content,
       author: social.author ?? null,
@@ -273,7 +350,7 @@ document.getElementById('save-form').addEventListener('submit', async (e) => {
       ideaUrl = project || null;
       break;
     }
-    default: data = { content };
+    default: data = { text: content };
   }
 
   const resp = await new Promise((res) =>
@@ -283,32 +360,54 @@ document.getElementById('save-form').addEventListener('submit', async (e) => {
         type,
         title: title || null,
         url: ideaUrl,
-        summary: content.slice(0, 200) || title || null,
+        summary: content.slice(0, 200) || pageMeta.description?.slice(0, 200) || title || null,
         data,
       },
     }, res)
   );
 
-  if (!resp.ok) {
-    errEl.textContent = resp.error;
+  if (!resp?.ok) {
+    errEl.textContent = resp?.error ?? 'Save failed — is the API reachable?';
     errEl.classList.remove('hidden');
     btn.disabled = false;
     btn.textContent = 'Save to SFL';
     return;
   }
 
-  for (const tagId of selectedTags) {
-    await new Promise((res) =>
+  // Create any new tags, then connect everything; count failures instead of
+  // swallowing them
+  let tagFailures = 0;
+  const tagIds = [...selectedTags];
+
+  for (const tagTitle of newTagTitles) {
+    const ensured = await new Promise((res) =>
+      chrome.runtime.sendMessage({ type: 'ENSURE_TAG', title: tagTitle }, res)
+    );
+    if (ensured?.ok) tagIds.push(ensured.tag.id);
+    else tagFailures++;
+  }
+
+  for (const tagId of tagIds) {
+    const conn = await new Promise((res) =>
       chrome.runtime.sendMessage({
         type: 'CREATE_CONNECTION',
         payload: { from_id: resp.idea.id, to_id: tagId, label: 'tagged_with' },
       }, res)
     );
+    if (!conn?.ok) tagFailures++;
   }
 
   hide('save-form');
+  const msgEl = document.querySelector('#success .success-msg');
+  if (tagFailures > 0) {
+    msgEl.textContent = `✓ Saved, but ${tagFailures} tag${tagFailures === 1 ? '' : 's'} failed`;
+  } else if (resp.existing) {
+    msgEl.textContent = tagIds.length > 0 ? '✓ Already saved — tags updated' : '✓ Already saved';
+  } else {
+    msgEl.textContent = '✓ Saved!';
+  }
   show('success');
-  setTimeout(() => window.close(), 1200);
+  setTimeout(() => window.close(), tagFailures > 0 ? 2500 : 1200);
 });
 
 document.getElementById('open-options').addEventListener('click', (e) => {

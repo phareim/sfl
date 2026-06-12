@@ -47,6 +47,11 @@ textarea { resize: vertical; }
   font-size: 0.75rem;
 }
 .tag-btn.selected { background: #1a73e8; color: #fff; border-color: #1a73e8; }
+.tag-btn.new { background: #2e7d32; border-color: #2e7d32; }
+.tag-btn.create { background: #fff; color: #1a73e8; border: 1px dashed #1a73e8; }
+.tag-more { font-size: 0.72rem; color: #999; align-self: center; }
+
+#tag-filter { padding: 5px 9px; font-size: 0.8rem; }
 
 button[type="submit"] {
   background: #1a73e8;
