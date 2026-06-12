@@ -84,10 +84,11 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 
 async function handleSaveSelection(info, tab) {
   const selectedText = info.selectionText ?? '';
+  // No top-level url: it would trigger URL dedup and silently discard
+  // every quote after the first from the same page. Source lives in data.
   const { idea } = await apiPost('/api/ideas', {
     type: 'quote',
     title: selectedText.slice(0, 80),
-    url: tab.url,
     summary: selectedText.slice(0, 200),
     data: {
       text: selectedText,

@@ -5,7 +5,7 @@ import { badRequest, notFound } from '../lib/errors.js';
 import { generateId } from '../lib/nanoid.js';
 import { getJson } from '../lib/r2.js';
 
-async function resyncNoteIdeaBody(env, idea_id) {
+export async function resyncNoteIdeaBody(env, idea_id) {
   const idea = await getIdea(env.DB, idea_id);
   if (!idea || idea.type !== 'note') return;
   const data = (await getJson(env.R2, idea.r2_key)) ?? {};

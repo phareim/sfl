@@ -148,6 +148,22 @@ describe('Ideas', () => {
     expect(json.idea.title).toBe('First');
   });
 
+  it('URL dedup is type-scoped — a quote from a saved page is not discarded', async () => {
+    await req('/api/ideas', {
+      method: 'POST',
+      body: { type: 'page', title: 'The Page', url: 'https://dup.com' },
+    });
+
+    const res2 = await req('/api/ideas', {
+      method: 'POST',
+      body: { type: 'quote', title: 'A quote', url: 'https://dup.com', data: { text: 'quoted text' } },
+    });
+    expect(res2.status).toBe(201);
+    const json = await res2.json();
+    expect(json.existing).toBeUndefined();
+    expect(json.idea.type).toBe('quote');
+  });
+
   it('search requires q parameter', async () => {
     const res = await req('/api/ideas/search');
     expect(res.status).toBe(400);

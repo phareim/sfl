@@ -1,16 +1,20 @@
 import { insertConnection } from '../db/connections.js';
 import {
   getIdea,
+  getIdeaByUrl,
   getIdeaConnections,
   getIdeaNotes,
   insertIdea,
   listIdeas,
+  projectBody,
   searchIdeas,
   updateIdea,
 } from '../db/ideas.js';
 import { insertNote } from '../db/notes.js';
+import { enrichIdea } from '../enrichment.js';
 import { generateId } from '../lib/nanoid.js';
 import { dataKey, getJson, putJson } from '../lib/r2.js';
+import { resyncNoteIdeaBody } from './notes.js';
 
 const PROTOCOL_VERSION = '2024-11-05';
 
@@ -158,7 +162,7 @@ const TOOLS = [
   },
 ];
 
-async function executeTool(name, args, env) {
+async function executeTool(name, args, env, ctx) {
   switch (name) {
     case 'list_tags': {
       const { results } = await env.DB.prepare(
@@ -184,6 +188,7 @@ async function executeTool(name, args, env) {
         title: args.title ?? null,
         url: null,
         summary: null,
+        body: projectBody('note', { text: args.content }),
         r2_key: r2Key,
         created_at: now,
         updated_at: now,
@@ -202,6 +207,8 @@ async function executeTool(name, args, env) {
           ),
         );
       }
+
+      ctx?.waitUntil(enrichIdea(env, id));
 
       const idea = await getIdea(env.DB, id);
       return { idea };
@@ -236,6 +243,15 @@ async function executeTool(name, args, env) {
     }
 
     case 'create_idea': {
+      // Same URL dedup as REST POST /api/ideas: return the existing idea
+      if (args.url) {
+        const existing = await getIdeaByUrl(env.DB, args.url, args.type);
+        if (existing) {
+          const existingData = await getJson(env.R2, existing.r2_key);
+          return { idea: existing, data: existingData ?? {}, existing: true };
+        }
+      }
+
       const id = generateId();
       const now = Date.now();
       const r2Key = dataKey(id);
@@ -251,10 +267,13 @@ async function executeTool(name, args, env) {
         title: args.title ?? null,
         url,
         summary: args.summary ?? null,
+        body: projectBody(args.type, args.data ?? {}),
         r2_key: r2Key,
         created_at: now,
         updated_at: now,
       });
+
+      ctx?.waitUntil(enrichIdea(env, id));
 
       const idea = await getIdea(env.DB, id);
       return { idea };
@@ -288,6 +307,7 @@ async function executeTool(name, args, env) {
       const id = generateId();
       const now = Date.now();
       await insertNote(env.DB, { id, idea_id: args.idea_id, body: args.body, created_at: now, updated_at: now });
+      await resyncNoteIdeaBody(env, args.idea_id);
       const note = await env.DB.prepare('SELECT * FROM notes WHERE id = ?').bind(id).first();
       return { note };
     }
@@ -296,9 +316,13 @@ async function executeTool(name, args, env) {
       const existing = await getIdea(env.DB, args.id);
       if (!existing) return { error: `Idea ${args.id} not found` };
       const now = Date.now();
+      let body;
       if (args.data !== undefined) {
         const existingData = (await getJson(env.R2, existing.r2_key)) ?? {};
-        await putJson(env.R2, existing.r2_key, { ...existingData, ...args.data });
+        const merged = { ...existingData, ...args.data };
+        await putJson(env.R2, existing.r2_key, merged);
+        const notesList = existing.type === 'note' ? await getIdeaNotes(env.DB, args.id) : [];
+        body = projectBody(existing.type, merged, notesList[0]);
       }
       // For meta ideas, keep D1 url in sync with data.project
       let url = existing.url;
@@ -309,6 +333,7 @@ async function executeTool(name, args, env) {
         title: args.title !== undefined ? args.title : existing.title,
         url,
         summary: args.summary !== undefined ? args.summary : existing.summary,
+        body,
         updated_at: now,
       });
       const idea = await getIdea(env.DB, args.id);
@@ -329,7 +354,7 @@ function rpcError(id, code, message) {
   return { jsonrpc: '2.0', id, error: { code, message } };
 }
 
-async function handleMessage(msg, env) {
+async function handleMessage(msg, env, ctx) {
   // Notifications have no id — acknowledge with null (caller returns 202)
   if (!('id' in msg)) return null;
 
@@ -355,7 +380,7 @@ async function handleMessage(msg, env) {
     const { name, arguments: args } = params ?? {};
     if (!name) return rpcError(id, -32602, 'Missing tool name');
     try {
-      const result = await executeTool(name, args ?? {}, env);
+      const result = await executeTool(name, args ?? {}, env, ctx);
       return rpcResult(id, {
         content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
       });
@@ -379,13 +404,13 @@ export async function handleMcpRequest(c) {
   }
 
   if (Array.isArray(body)) {
-    const responses = await Promise.all(body.map((msg) => handleMessage(msg, c.env)));
+    const responses = await Promise.all(body.map((msg) => handleMessage(msg, c.env, c.executionCtx)));
     const filtered = responses.filter((r) => r !== null);
     if (filtered.length === 0) return new Response(null, { status: 202 });
     return c.json(filtered);
   }
 
-  const result = await handleMessage(body, c.env);
+  const result = await handleMessage(body, c.env, c.executionCtx);
   if (result === null) return new Response(null, { status: 202 });
   return c.json(result);
 }

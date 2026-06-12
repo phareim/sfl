@@ -238,11 +238,16 @@ document.getElementById('save-form').addEventListener('submit', async (e) => {
       video_id: video.video_id ?? null,
       page_title: title,
     }; break;
-    case 'quote': data = {
-      text: content,
-      source_url: url,
-      attribution: document.getElementById('attribution').value || null,
-    }; break;
+    case 'quote':
+      data = {
+        text: content,
+        source_url: url,
+        attribution: document.getElementById('attribution').value || null,
+      };
+      // No top-level url: URL dedup would return the existing idea for this
+      // page and silently discard the quote text.
+      ideaUrl = null;
+      break;
     case 'note':  data = { content }; break;
     case 'tweet': data = {
       url, text: content,

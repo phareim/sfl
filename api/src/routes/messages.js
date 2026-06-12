@@ -58,7 +58,9 @@ messages.post('/', async (c) => {
 
   const message = { id, body: msgBody.trim(), sender: 'user', created_at: now };
 
-  if (c.env.WEBHOOK_URL) {
+  // CHAT_WEBHOOK_URL is dedicated to chat forwarding — WEBHOOK_URL belongs to
+  // the saved-search cron and must not receive chat messages.
+  if (c.env.CHAT_WEBHOOK_URL) {
     c.executionCtx.waitUntil(fireWebhook(c.env, message));
   } else {
     c.executionCtx.waitUntil(generateReply(c.env, msgBody.trim()));
@@ -69,7 +71,7 @@ messages.post('/', async (c) => {
 
 async function fireWebhook(env, message) {
   try {
-    await fetch(env.WEBHOOK_URL, {
+    await fetch(env.CHAT_WEBHOOK_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

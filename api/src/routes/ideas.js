@@ -49,9 +49,9 @@ ideas.post('/', async (c) => {
   const { type, title, url, summary, data } = body;
   if (!type) return badRequest('type is required');
 
-  // Return existing idea if URL already captured
+  // Return existing idea if URL already captured as the same type
   if (url) {
-    const existing = await getIdeaByUrl(c.env.DB, url);
+    const existing = await getIdeaByUrl(c.env.DB, url, type);
     if (existing) {
       const [existingData, connections, notes, media] = await Promise.all([
         getJson(c.env.R2, existing.r2_key),

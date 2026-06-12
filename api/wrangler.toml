@@ -21,6 +21,9 @@ binding = "AI"
 #   WEBHOOK_URL  — where new-match POSTs land (sfl-hook on Sleeper)
 #   SAVED_SEARCH_ENABLED — killswitch; flip to "true" to enable the daily cron push
 #   SFL_WEBHOOK_SECRET is set via: wrangler secret put SFL_WEBHOOK_SECRET
+# Chat forwarding (optional, distinct from saved-searches):
+#   CHAT_WEBHOOK_URL — chat messages are forwarded here instead of getting an AI reply
+#   WEBHOOK_SECRET   — sent as X-SFL-Secret with chat forwards (wrangler secret put WEBHOOK_SECRET)
 WEBHOOK_URL = "https://sleeper.phareim.no/sfl-hook/saved-search-hit"
 SAVED_SEARCH_ENABLED = "true"
 

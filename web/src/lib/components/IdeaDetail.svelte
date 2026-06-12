@@ -1,4 +1,5 @@
 <script>
+import DOMPurify from 'dompurify';
 import { marked } from 'marked';
 import { enrichIdea, fetchContent, updateIdea } from '../api/ideas.js';
 import { updateNote } from '../api/notes.js';
@@ -407,7 +408,7 @@ $: videoEmbed = (() => {
         on:keydown={(e) => e.key === 'Enter' && startEditText()}
       >
         {#if data.markdown}
-          <div class="markdown-body">{@html marked.parse(data.text)}</div>
+          <div class="markdown-body">{@html DOMPurify.sanitize(marked.parse(data.text))}</div>
         {:else}
           <blockquote style="border-left-color: {accent};">{data.text}</blockquote>
         {/if}

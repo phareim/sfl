@@ -156,9 +156,11 @@ export function createMockDB() {
       return { first: row, all: row ? [row] : [] };
     }
 
-    // SELECT * FROM ideas WHERE url = ? LIMIT 1
+    // SELECT * FROM ideas WHERE url = ? [AND type = ?] LIMIT 1
     if (s.includes('FROM ideas WHERE url = ?')) {
-      const row = tables.ideas.find((r) => r.url === params[0]) ?? null;
+      let rows = tables.ideas.filter((r) => r.url === params[0]);
+      if (s.includes('AND type = ?')) rows = rows.filter((r) => r.type === params[1]);
+      const row = rows[0] ?? null;
       return { first: row, all: row ? [row] : [] };
     }
 
@@ -225,9 +227,23 @@ export function createMockDB() {
       return { all: [] };
     }
 
+    // INSERT INTO notes (id, idea_id, body, created_at, updated_at)
+    if (s.startsWith('INSERT INTO notes')) {
+      const [id, idea_id, body, created_at, updated_at] = params;
+      tables.notes.push({ id, idea_id, body, created_at, updated_at });
+      return { run: true };
+    }
+
     // Notes for idea
     if (s.includes('FROM notes WHERE idea_id')) {
-      return { all: [] };
+      const rows = tables.notes.filter((n) => n.idea_id === params[0]).sort((a, b) => a.created_at - b.created_at);
+      return { all: rows };
+    }
+
+    // SELECT * FROM notes WHERE id = ?
+    if (s.includes('FROM notes WHERE id = ?')) {
+      const row = tables.notes.find((n) => n.id === params[0]) ?? null;
+      return { first: row };
     }
 
     // Media for idea

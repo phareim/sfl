@@ -77,9 +77,14 @@ export async function getIdea(db, id) {
 }
 
 /**
- * Fetch the first idea row matching a URL. Returns null if not found.
+ * Fetch the first idea row matching a URL (and type, when given).
+ * Returns null if not found. Dedup is type-scoped so e.g. a quote
+ * captured from a page doesn't collide with the page idea itself.
  */
-export async function getIdeaByUrl(db, url) {
+export async function getIdeaByUrl(db, url, type) {
+  if (type) {
+    return db.prepare('SELECT * FROM ideas WHERE url = ? AND type = ? LIMIT 1').bind(url, type).first();
+  }
   return db.prepare('SELECT * FROM ideas WHERE url = ? LIMIT 1').bind(url).first();
 }
 

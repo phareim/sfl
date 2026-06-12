@@ -673,20 +673,31 @@ struct ShareView: View {
             let textContent = context.text
             let t = title.isEmpty ? (urlString ?? textContent ?? "") : title
 
-            let metaData: [String: String?]? = selectedType == "meta" ? [
-                "project": metaProject.isEmpty ? "https://github.com/phareim/sfl" : metaProject,
-                "priority": metaPriority,
-                "status": metaStatus,
-                "git_commit": nil,
-                "implementation_details": "",
-            ] : nil
+            let ideaData: [String: String?]?
+            if selectedType == "meta" {
+                ideaData = [
+                    "project": metaProject.isEmpty ? "https://github.com/phareim/sfl" : metaProject,
+                    "priority": metaPriority,
+                    "status": metaStatus,
+                    "git_commit": nil,
+                    "implementation_details": "",
+                ]
+            } else if let textContent, !textContent.isEmpty {
+                // The shared text is the captured content — without this it
+                // only survives as a title fallback and is lost otherwise.
+                var d: [String: String?] = ["text": textContent]
+                if let urlString { d["source_url"] = urlString }
+                ideaData = d
+            } else {
+                ideaData = nil
+            }
 
             let created = try await APIClient.shared.createIdea(
                 type: selectedType,
                 title: t.isEmpty ? nil : t,
                 url: urlString,
                 summary: selectedType == "note" ? textContent : nil,
-                data: metaData
+                data: ideaData
             )
 
             for tag in selectedTags {
