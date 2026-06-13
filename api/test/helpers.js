@@ -83,6 +83,28 @@ export function createMockDB() {
       return { all: rows };
     }
 
+    // SELECT to_id FROM connections WHERE from_id = ? AND label='tagged_with'
+    if (s.includes('FROM connections WHERE from_id = ? AND label =')) {
+      const rows = tables.connections.filter((c) => c.from_id === params[0] && c.label === 'tagged_with');
+      return { all: rows };
+    }
+
+    // SELECT id, title FROM ideas WHERE type = 'tag' ORDER BY title ASC
+    if (s.includes("FROM ideas WHERE type = 'tag' ORDER BY title")) {
+      const rows = tables.ideas
+        .filter((r) => r.type === 'tag')
+        .sort((a, b) => (a.title ?? '').localeCompare(b.title ?? ''));
+      return { all: rows };
+    }
+
+    // UPDATE ideas SET summary = ?, updated_at = ? WHERE id = ?  (applySummary)
+    if (s.startsWith('UPDATE ideas SET summary = ?, updated_at = ? WHERE id = ?')) {
+      const [summary, updated_at, id] = params;
+      const idx = tables.ideas.findIndex((r) => r.id === id);
+      if (idx >= 0) Object.assign(tables.ideas[idx], { summary, updated_at });
+      return { run: true };
+    }
+
     // UPDATE connections SET to_id = ? WHERE id = ? AND label='tagged_with'
     if (s.startsWith('UPDATE connections SET to_id = ?')) {
       const [newToId, connId] = params;
@@ -100,6 +122,31 @@ export function createMockDB() {
       }
       tables.connections[idx].to_id = newToId;
       return { run: true, changes: 1 };
+    }
+
+    // INSERT [OR IGNORE] INTO connections — label is either a bound param (5)
+    // or a string literal in the SQL (4, used by enrichment)
+    if (s.startsWith('INSERT INTO connections') || s.startsWith('INSERT OR IGNORE INTO connections')) {
+      let id, from_id, to_id, label, created_at;
+      if (params.length === 5) {
+        [id, from_id, to_id, label, created_at] = params;
+      } else {
+        [id, from_id, to_id, created_at] = params;
+        label = s.match(/'(\w+)'/)?.[1] ?? null;
+      }
+      const dupe = tables.connections.find((c) => c.from_id === from_id && c.to_id === to_id && c.label === label);
+      if (dupe) {
+        if (s.includes('OR IGNORE')) return { run: true, changes: 0 };
+        throw new Error('UNIQUE constraint failed: connections.from_id, connections.to_id, connections.label');
+      }
+      tables.connections.push({ id, from_id, to_id, label, created_at });
+      return { run: true, changes: 1 };
+    }
+
+    // SELECT * FROM connections WHERE id = ?
+    if (s.startsWith('SELECT') && s.includes('FROM connections WHERE id = ?')) {
+      const row = tables.connections.find((c) => c.id === params[0]) ?? null;
+      return { first: row };
     }
 
     // DELETE FROM connections WHERE id = ?
@@ -276,36 +323,45 @@ export function createMockDB() {
     return { first: null, all: [], run: true };
   }
 
+  // matchQuery may throw (used for UNIQUE constraint sim); rethrow lazily
+  // from first/all/run so callers see the same shape as D1.
+  function execute(sql, params) {
+    let result;
+    let thrown;
+    try {
+      result = matchQuery(sql, params);
+    } catch (err) {
+      thrown = err;
+      result = {};
+    }
+    return {
+      async first() {
+        if (thrown) throw thrown;
+        return result.first ?? null;
+      },
+      async all() {
+        if (thrown) throw thrown;
+        return { results: result.all ?? [] };
+      },
+      async run() {
+        if (thrown) throw thrown;
+        return { meta: { changes: result.changes ?? 1 } };
+      },
+    };
+  }
+
   return {
     _tables: tables,
     prepare(sql) {
+      // Support both prepare().bind(...).run() and the bind-less
+      // prepare().all() form used by some queries with no parameters.
       return {
         bind(...params) {
-          // matchQuery may throw (used for UNIQUE constraint sim); rethrow lazily
-          // from first/all/run so callers see the same shape as D1.
-          let result;
-          let thrown;
-          try {
-            result = matchQuery(sql, params);
-          } catch (err) {
-            thrown = err;
-            result = {};
-          }
-          return {
-            async first() {
-              if (thrown) throw thrown;
-              return result.first ?? null;
-            },
-            async all() {
-              if (thrown) throw thrown;
-              return { results: result.all ?? [] };
-            },
-            async run() {
-              if (thrown) throw thrown;
-              return { meta: { changes: result.changes ?? 1 } };
-            },
-          };
+          return execute(sql, params);
         },
+        first: () => execute(sql, []).first(),
+        all: () => execute(sql, []).all(),
+        run: () => execute(sql, []).run(),
       };
     },
   };

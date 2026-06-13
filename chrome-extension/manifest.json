@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Sleeper For Life (SFL)",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Save pages, quotes, images, tweets and more to your personal idea graph.",
   "permissions": [
     "activeTab",

@@ -66,21 +66,118 @@ chrome.runtime.onInstalled.addListener(() => {
 
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   try {
+    let idea;
     if (info.menuItemId === 'sfl-save-selection') {
-      await handleSaveSelection(info, tab);
+      idea = await handleSaveSelection(info, tab);
     } else if (info.menuItemId === 'sfl-save-page') {
-      await handleSavePage(info, tab);
+      idea = await handleSavePage(info, tab);
     } else if (info.menuItemId === 'sfl-save-image') {
-      await handleSaveImage(info, tab);
+      idea = await handleSaveImage(info, tab);
     }
     chrome.action.setBadgeText({ text: '✓', tabId: tab.id });
     setTimeout(() => chrome.action.setBadgeText({ text: '', tabId: tab.id }), 2000);
+
+    // Offer suggested tags in an in-page toast (best-effort, non-blocking).
+    if (idea?.id) suggestTagsToast(tab.id, idea.id).catch(() => {});
   } catch (err) {
     console.error('[SFL]', err);
     chrome.action.setBadgeText({ text: '!', tabId: tab.id });
     setTimeout(() => chrome.action.setBadgeText({ text: '', tabId: tab.id }), 3000);
   }
 });
+
+/**
+ * Ask the API for two tag suggestions and render them as an in-page toast
+ * the user can one-click to apply. Injected via scripting so it works even
+ * on tabs opened before the extension loaded.
+ */
+async function suggestTagsToast(tabId, ideaId) {
+  let suggestions = [];
+  try {
+    const resp = await apiPost(`/api/ideas/${ideaId}/suggest-tags`, { count: 2 });
+    suggestions = resp?.suggestions ?? [];
+  } catch {
+    return; // no suggestions, no toast
+  }
+  if (suggestions.length === 0) return;
+
+  try {
+    await chrome.scripting.executeScript({
+      target: { tabId },
+      func: renderTagToast,
+      args: [ideaId, suggestions],
+    });
+  } catch {
+    // Page disallows injection (chrome://, store pages); skip silently.
+  }
+}
+
+/**
+ * Runs in the page. Renders a shadow-DOM toast with clickable tag chips;
+ * each click messages the service worker to apply the tag.
+ */
+function renderTagToast(ideaId, suggestions) {
+  document.getElementById('sfl-tag-toast')?.remove();
+
+  const host = document.createElement('div');
+  host.id = 'sfl-tag-toast';
+  const root = host.attachShadow({ mode: 'open' });
+  root.innerHTML = `
+    <style>
+      .box {
+        position: fixed; bottom: 20px; right: 20px; z-index: 2147483647;
+        background: #fff; color: #1a1a1a; border: 1px solid #e0e0e0;
+        border-radius: 12px; box-shadow: 0 6px 24px rgba(0,0,0,0.18);
+        padding: 12px 14px; width: 260px;
+        font: 13px/1.4 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        animation: slide 0.18s ease-out;
+      }
+      @keyframes slide { from { transform: translateY(8px); opacity: 0; } to { transform: none; opacity: 1; } }
+      .head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+      .title { font-weight: 600; }
+      .x { cursor: pointer; color: #aaa; font-size: 15px; line-height: 1; }
+      .x:hover { color: #555; }
+      .hint { color: #888; font-size: 11px; margin-bottom: 8px; }
+      .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+      .chip {
+        cursor: pointer; border: 1px solid #1a73e8; color: #1a73e8; background: #fff;
+        border-radius: 999px; padding: 3px 11px; font-size: 12px; transition: all 0.12s;
+      }
+      .chip.new { border-style: dashed; }
+      .chip:hover { background: #1a73e8; color: #fff; }
+      .chip.applied { background: #2e7d32; border-color: #2e7d32; color: #fff; cursor: default; }
+    </style>
+    <div class="box">
+      <div class="head">
+        <span class="title">✓ Saved to SFL</span>
+        <span class="x">✕</span>
+      </div>
+      <div class="hint">Add a tag:</div>
+      <div class="chips"></div>
+    </div>
+  `;
+
+  const chips = root.querySelector('.chips');
+  for (const s of suggestions) {
+    const chip = document.createElement('button');
+    chip.className = 'chip' + (s.existing ? '' : ' new');
+    chip.textContent = '#' + s.title;
+    chip.addEventListener('click', () => {
+      if (chip.classList.contains('applied')) return;
+      chip.classList.add('applied');
+      chip.textContent = '✓ #' + s.title;
+      chrome.runtime.sendMessage({ type: 'APPLY_TAG', ideaId, tag: s });
+    });
+    chips.appendChild(chip);
+  }
+
+  const dismiss = () => host.remove();
+  root.querySelector('.x').addEventListener('click', dismiss);
+  const timer = setTimeout(dismiss, 9000);
+  host.addEventListener('mouseenter', () => clearTimeout(timer));
+
+  document.documentElement.appendChild(host);
+}
 
 async function handleSaveSelection(info, tab) {
   const selectedText = info.selectionText ?? '';
@@ -292,6 +389,19 @@ async function ensureTag(title) {
   return idea;
 }
 
+/**
+ * Apply a tag suggestion to an idea: resolve/create the tag, then connect it.
+ * Treats an existing connection as success.
+ */
+async function applyTagToIdea(ideaId, tag) {
+  const tagId = tag.id ?? (await ensureTag(tag.title)).id;
+  try {
+    await apiPost('/api/connections', { from_id: ideaId, to_id: tagId, label: 'tagged_with' });
+  } catch (err) {
+    if (!/already exists/i.test(err.message)) throw err;
+  }
+}
+
 // Handle messages from popup/content scripts
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'SAVE_IDEA') {
@@ -318,6 +428,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'ENSURE_TAG') {
     ensureTag(message.title)
       .then((tag) => sendResponse({ ok: true, tag }))
+      .catch((err) => sendResponse({ ok: false, error: err.message }));
+    return true;
+  }
+
+  if (message.type === 'APPLY_TAG') {
+    applyTagToIdea(message.ideaId, message.tag)
+      .then(() => sendResponse({ ok: true }))
       .catch((err) => sendResponse({ ok: false, error: err.message }));
     return true;
   }

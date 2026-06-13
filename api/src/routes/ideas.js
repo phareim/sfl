@@ -13,7 +13,7 @@ import {
   searchIdeas,
   updateIdea,
 } from '../db/ideas.js';
-import { enrichIdea, runEnrichment } from '../enrichment.js';
+import { enrichIdea, runEnrichment, suggestTags } from '../enrichment.js';
 import { badRequest, notFound, serverError } from '../lib/errors.js';
 import { generateId } from '../lib/nanoid.js';
 import { dataKey, deleteObject, getJson, putJson } from '../lib/r2.js';
@@ -168,14 +168,27 @@ ideas.post('/:id/enrich', async (c) => {
   if (!idea) return notFound('Idea not found');
 
   const mode = c.req.query('mode') ?? 'all';
-  if (!['tags', 'connections', 'markdown', 'all'].includes(mode)) {
-    return badRequest('mode must be tags, connections, markdown, or all');
+  if (!['tags', 'connections', 'markdown', 'summary', 'all'].includes(mode)) {
+    return badRequest('mode must be tags, connections, markdown, summary, or all');
   }
 
   await runEnrichment(c.env, id, mode);
 
   const [connections, data] = await Promise.all([getIdeaConnections(c.env.DB, id), getJson(c.env.R2, idea.r2_key)]);
   return c.json({ connections, data: data ?? {} });
+});
+
+// POST /api/ideas/:id/suggest-tags  { count? } → { suggestions: [{ id, title, existing }] }
+ideas.post('/:id/suggest-tags', async (c) => {
+  const id = c.req.param('id');
+  const idea = await getIdea(c.env.DB, id);
+  if (!idea) return notFound('Idea not found');
+
+  const body = await c.req.json().catch(() => ({}));
+  const count = Math.min(Math.max(Number(body?.count) || 2, 1), 5);
+
+  const suggestions = await suggestTags(c.env, id, count);
+  return c.json({ suggestions });
 });
 
 // POST /api/ideas/:id/fetch-content

@@ -18,7 +18,7 @@ export async function enrichIdea(env, ideaId) {
  * Run enrichment for an idea with a specific mode.
  * Throws on error — callers are responsible for handling.
  *
- * @param {'tags'|'connections'|'markdown'|'all'} mode
+ * @param {'tags'|'connections'|'markdown'|'summary'|'all'} mode
  */
 export async function runEnrichment(env, ideaId, mode = 'all') {
   const idea = await getIdea(env.DB, ideaId);
@@ -32,7 +32,120 @@ export async function runEnrichment(env, ideaId, mode = 'all') {
   if (mode === 'tags' || mode === 'all') tasks.push(applyTags(env, idea, description));
   if (mode === 'connections' || mode === 'all') tasks.push(applyConnections(env, idea, description));
   if (mode === 'markdown' || mode === 'all') tasks.push(formatAsMarkdown(env, idea, data));
+  if (mode === 'summary' || mode === 'all') tasks.push(applySummary(env, idea, data));
   await Promise.all(tasks);
+}
+
+/**
+ * Generate a 1–2 sentence summary when the user didn't write one.
+ * "No summary" includes the lazy defaults the capture clients send:
+ * the title itself, or the first N chars of the content.
+ */
+async function applySummary(env, idea, data) {
+  try {
+    if (idea.type === 'meta') return;
+
+    const content = [data.text, data.description, data.html_excerpt].find(
+      (v) => typeof v === 'string' && v.trim().length >= 80,
+    );
+    if (!content) return;
+
+    const existing = (idea.summary ?? '').trim();
+    const isLazyDefault =
+      !existing || existing === (idea.title ?? '').trim() || content.startsWith(existing.replace(/…$/, ''));
+    if (!isLazyDefault) return;
+
+    const messages = [
+      {
+        role: 'system',
+        content:
+          'You write one to two sentence descriptions of saved content. Be concrete and specific about what the content covers. Return only the description, no preamble or quotes.',
+      },
+      { role: 'user', content: content.slice(0, 4000) },
+    ];
+
+    const response = await env.AI.run('@cf/meta/llama-3.1-8b-instruct', { messages, max_tokens: 200 });
+    const summary = response?.response?.trim();
+    if (!summary || summary.length < 10) return;
+
+    await env.DB.prepare('UPDATE ideas SET summary = ?, updated_at = ? WHERE id = ?')
+      .bind(summary.slice(0, 500), Date.now(), idea.id)
+      .run();
+  } catch {
+    // Best-effort
+  }
+}
+
+/**
+ * Suggest up to `count` tags for an idea: existing tags preferred, new tag
+ * titles allowed. Tags already on the idea are excluded.
+ * Returns [{ id, title, existing }] — id is null for proposed new tags.
+ */
+export async function suggestTags(env, ideaId, count = 2) {
+  const idea = await getIdea(env.DB, ideaId);
+  if (!idea || idea.type === 'tag') return [];
+
+  const data = (await getJson(env.R2, idea.r2_key)) ?? {};
+  const description = buildIdeaDescription(idea, data);
+
+  const { results: tags } = await env.DB.prepare(
+    "SELECT id, title FROM ideas WHERE type = 'tag' ORDER BY title ASC",
+  ).all();
+
+  const { results: applied } = await env.DB.prepare(
+    "SELECT to_id FROM connections WHERE from_id = ? AND label = 'tagged_with'",
+  )
+    .bind(ideaId)
+    .all();
+  const appliedIds = new Set(applied.map((r) => r.to_id));
+
+  const available = tags.filter((t) => !appliedIds.has(t.id));
+  const tagList = available.map((t) => t.title).join(', ') || '(none yet)';
+
+  const messages = [
+    {
+      role: 'system',
+      content: `You suggest tags for saved ideas. Return a JSON array of exactly ${count} tag names (short, lowercase strings) that best describe the idea. Prefer names from the existing tags list; only invent a new name when nothing fits. Return only the JSON array, nothing else.`,
+    },
+    {
+      role: 'user',
+      content: `Idea:\n${description}\n\nExisting tags: ${tagList}`,
+    },
+  ];
+
+  const response = await env.AI.run('@cf/meta/llama-3.1-8b-instruct', { messages });
+  const text = response?.response?.trim() ?? '';
+
+  let titles;
+  try {
+    titles = JSON.parse(text);
+  } catch {
+    const match = text.match(/\[[\s\S]*\]/);
+    if (!match) return [];
+    try {
+      titles = JSON.parse(match[0]);
+    } catch {
+      return [];
+    }
+  }
+  if (!Array.isArray(titles)) return [];
+
+  const seen = new Set();
+  const suggestions = [];
+  for (const raw of titles) {
+    if (typeof raw !== 'string') continue;
+    const title = raw.trim().replace(/^#/, '');
+    if (!title || seen.has(title.toLowerCase())) continue;
+    seen.add(title.toLowerCase());
+
+    const existing = tags.find((t) => t.title?.toLowerCase() === title.toLowerCase());
+    if (existing && appliedIds.has(existing.id)) continue;
+    suggestions.push(
+      existing ? { id: existing.id, title: existing.title, existing: true } : { id: null, title, existing: false },
+    );
+    if (suggestions.length >= count) break;
+  }
+  return suggestions;
 }
 
 async function applyTags(env, idea, description) {
