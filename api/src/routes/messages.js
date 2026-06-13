@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import { TEXT_MODEL } from '../lib/ai.js';
 import { badRequest } from '../lib/errors.js';
 import { generateId } from '../lib/nanoid.js';
 
@@ -96,7 +97,7 @@ async function generateReply(env, userMessage) {
       ? `You are Sleeper, a personal server assistant. Be concise.\n\nRecent tasks:\n${contextLines}`
       : 'You are Sleeper, a personal server assistant. Be concise.';
 
-    const response = await env.AI.run('@cf/meta/llama-3.1-8b-instruct', {
+    const response = await env.AI.run(TEXT_MODEL, {
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userMessage },

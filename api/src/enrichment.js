@@ -1,4 +1,5 @@
 import { getIdea, getIdeaNotes, listIdeas, projectBody, searchIdeas, setIdeaBody } from './db/ideas.js';
+import { TEXT_MODEL } from './lib/ai.js';
 import { generateId } from './lib/nanoid.js';
 import { getJson, putJson } from './lib/r2.js';
 
@@ -64,7 +65,7 @@ async function applySummary(env, idea, data) {
       { role: 'user', content: content.slice(0, 4000) },
     ];
 
-    const response = await env.AI.run('@cf/meta/llama-3.1-8b-instruct', { messages, max_tokens: 200 });
+    const response = await env.AI.run(TEXT_MODEL, { messages, max_tokens: 200 });
     const summary = response?.response?.trim();
     if (!summary || summary.length < 10) return;
 
@@ -131,7 +132,7 @@ async function suggestTagsForDescription(env, description, count = 2, appliedIds
     },
   ];
 
-  const response = await env.AI.run('@cf/meta/llama-3.1-8b-instruct', { messages });
+  const response = await env.AI.run(TEXT_MODEL, { messages });
   const text = response?.response?.trim() ?? '';
 
   let titles;
@@ -261,7 +262,7 @@ async function formatAsMarkdown(env, idea, data) {
       { role: 'user', content: text },
     ];
 
-    const response = await env.AI.run('@cf/meta/llama-3.1-8b-instruct', { messages, max_tokens: 4096 });
+    const response = await env.AI.run(TEXT_MODEL, { messages, max_tokens: 4096 });
     const formatted = response?.response?.trim();
     if (!formatted) return;
 
@@ -303,7 +304,7 @@ async function findCandidates(env, idea) {
 }
 
 async function callAI(env, messages, validIds) {
-  const response = await env.AI.run('@cf/meta/llama-3.1-8b-instruct', { messages });
+  const response = await env.AI.run(TEXT_MODEL, { messages });
   const text = response?.response?.trim() ?? '';
 
   let ids;
