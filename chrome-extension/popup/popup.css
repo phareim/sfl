@@ -35,7 +35,14 @@ input:focus, select:focus, textarea:focus { border-color: #1a73e8; }
 textarea { resize: vertical; }
 
 .tag-section { display: flex; flex-direction: column; gap: 6px; }
+.tag-header { display: flex; align-items: center; justify-content: space-between; }
 .tag-label { font-size: 0.8rem; color: #555; }
+.suggest-btn {
+  background: none; border: none; color: #1a73e8; cursor: pointer;
+  font-size: 0.78rem; font-weight: 500; padding: 0;
+}
+.suggest-btn:hover { text-decoration: underline; }
+.suggest-btn:disabled { color: #aaa; cursor: default; text-decoration: none; }
 .tag-list { display: flex; flex-wrap: wrap; gap: 5px; }
 
 .tag-btn {

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import app from '../src/app.js';
 import { apiRequest, createMockEnv } from './helpers.js';
 
@@ -7,6 +7,15 @@ const executionCtx = { waitUntil: () => {}, passThroughOnException: () => {} };
 
 beforeEach(() => {
   env = createMockEnv();
+  // Page saves now fetch the article in the background; keep it hermetic.
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async () => ({ ok: false, headers: { get: () => null } })),
+  );
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
 });
 
 function req(path, options = {}) {
@@ -184,5 +193,44 @@ describe('Ideas', () => {
   it('search requires q parameter', async () => {
     const res = await req('/api/ideas/search');
     expect(res.status).toBe(400);
+  });
+});
+
+// ── Article fetch ────────────────────────────────────────────────────
+
+describe('fetch-content', () => {
+  // The happy path runs the page through HTMLRewriter, a Workers-runtime global
+  // unavailable in the Node test runner, so it's exercised via wrangler/prod
+  // rather than here.
+  it('rejects fetch-content for non-page ideas', async () => {
+    const createRes = await req('/api/ideas', { method: 'POST', body: { type: 'note', data: { text: 'hi' } } });
+    const { idea } = await createRes.json();
+    const res = await req(`/api/ideas/${idea.id}/fetch-content`, { method: 'POST' });
+    expect(res.status).toBe(400);
+  });
+});
+
+// ── Ad-hoc tag suggestions ───────────────────────────────────────────
+
+describe('POST /api/ideas/suggest-tags (ad-hoc)', () => {
+  it('suggests tags for not-yet-saved content', async () => {
+    await req('/api/ideas', { method: 'POST', body: { type: 'tag', title: 'birds' } });
+    env.AI = { run: async () => ({ response: '["birds", "conservation"]' }) };
+
+    const res = await req('/api/ideas/suggest-tags', {
+      method: 'POST',
+      body: { title: 'Owls', text: 'an article about burrowing owls and grassland conservation', count: 2 },
+    });
+    expect(res.status).toBe(200);
+    const { suggestions } = await res.json();
+    expect(suggestions).toHaveLength(2);
+    expect(suggestions[0]).toMatchObject({ title: 'birds', existing: true });
+    expect(suggestions[1]).toEqual({ id: null, title: 'conservation', existing: false });
+  });
+
+  it('is not captured as an :id route', async () => {
+    env.AI = { run: async () => ({ response: '[]' }) };
+    const res = await req('/api/ideas/suggest-tags', { method: 'POST', body: { title: 'x' } });
+    expect(res.status).toBe(200); // 200 with [], not 404 from /:id/suggest-tags
   });
 });

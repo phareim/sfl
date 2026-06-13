@@ -88,16 +88,34 @@ export async function suggestTags(env, ideaId, count = 2) {
   const data = (await getJson(env.R2, idea.r2_key)) ?? {};
   const description = buildIdeaDescription(idea, data);
 
-  const { results: tags } = await env.DB.prepare(
-    "SELECT id, title FROM ideas WHERE type = 'tag' ORDER BY title ASC",
-  ).all();
-
   const { results: applied } = await env.DB.prepare(
     "SELECT to_id FROM connections WHERE from_id = ? AND label = 'tagged_with'",
   )
     .bind(ideaId)
     .all();
   const appliedIds = new Set(applied.map((r) => r.to_id));
+
+  return suggestTagsForDescription(env, description, count, appliedIds);
+}
+
+/**
+ * Suggest tags for not-yet-saved content (used by the popup before the idea
+ * exists). Builds a description from the provided fields.
+ */
+export async function suggestTagsForContent(env, { title, url, summary, text, count = 2 } = {}) {
+  const parts = [];
+  if (title) parts.push(`Title: ${title}`);
+  if (summary) parts.push(`Summary: ${summary}`);
+  if (url) parts.push(`URL: ${url}`);
+  if (text) parts.push(String(text).slice(0, 2000));
+  const description = parts.join('\n') || '(no description)';
+  return suggestTagsForDescription(env, description, count);
+}
+
+async function suggestTagsForDescription(env, description, count = 2, appliedIds = new Set()) {
+  const { results: tags } = await env.DB.prepare(
+    "SELECT id, title FROM ideas WHERE type = 'tag' ORDER BY title ASC",
+  ).all();
 
   const available = tags.filter((t) => !appliedIds.has(t.id));
   const tagList = available.map((t) => t.title).join(', ') || '(none yet)';

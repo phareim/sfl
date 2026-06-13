@@ -195,6 +195,8 @@ async function init() {
   pageMeta = metaResp?.meta ?? {};
   renderTags();
 
+  document.getElementById('suggest-tags').addEventListener('click', suggestTags);
+
   const filterEl = document.getElementById('tag-filter');
   filterEl.addEventListener('input', () => renderTags(filterEl.value));
   filterEl.addEventListener('keydown', (e) => {
@@ -211,6 +213,34 @@ async function init() {
     filterEl.value = '';
     renderTags();
   });
+}
+
+async function suggestTags() {
+  const btn = document.getElementById('suggest-tags');
+  btn.disabled = true;
+  btn.textContent = '✨ Thinking…';
+
+  const payload = {
+    title: document.getElementById('title').value || null,
+    url: document.getElementById('url').value || null,
+    text: document.getElementById('content').value || null,
+    count: 2,
+  };
+
+  const resp = await new Promise((res) =>
+    chrome.runtime.sendMessage({ type: 'SUGGEST_TAGS', payload }, res)
+  );
+
+  const suggestions = resp?.ok ? resp.suggestions : [];
+  for (const s of suggestions) {
+    if (s.existing && s.id) selectedTags.add(s.id);
+    else if (s.title) newTagTitles.add(s.title);
+  }
+  renderTags();
+
+  btn.disabled = false;
+  btn.textContent = suggestions.length ? '✨ Suggest' : '✨ No ideas';
+  if (!suggestions.length) setTimeout(() => { btn.textContent = '✨ Suggest'; }, 1500);
 }
 
 const TAG_DISPLAY_CAP = 24;

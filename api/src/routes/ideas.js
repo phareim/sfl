@@ -11,9 +11,10 @@ import {
   listIdeas,
   projectBody,
   searchIdeas,
+  setIdeaBody,
   updateIdea,
 } from '../db/ideas.js';
-import { enrichIdea, runEnrichment, suggestTags } from '../enrichment.js';
+import { enrichIdea, runEnrichment, suggestTags, suggestTagsForContent } from '../enrichment.js';
 import { badRequest, notFound, serverError } from '../lib/errors.js';
 import { generateId } from '../lib/nanoid.js';
 import { dataKey, deleteObject, getJson, putJson } from '../lib/r2.js';
@@ -92,9 +93,25 @@ ideas.post('/', async (c) => {
 
   const idea = await getIdea(c.env.DB, id);
 
-  c.executionCtx.waitUntil(enrichIdea(c.env, id));
+  // Pages: pull the full article first so enrichment summarizes the real
+  // content, not just the meta description. Everything else enriches directly.
+  if (type === 'page' && resolvedUrl) {
+    c.executionCtx.waitUntil(fetchThenEnrich(c.env, id));
+  } else {
+    c.executionCtx.waitUntil(enrichIdea(c.env, id));
+  }
 
   return c.json({ idea, data: data ?? {} }, 201);
+});
+
+// POST /api/ideas/suggest-tags { title?, url?, text?, summary?, count? }
+// Ad-hoc suggestions for not-yet-saved content (popup). Must be declared
+// before /:id routes so "suggest-tags" isn't captured as an :id.
+ideas.post('/suggest-tags', async (c) => {
+  const body = await c.req.json().catch(() => ({}));
+  const count = Math.min(Math.max(Number(body?.count) || 2, 1), 5);
+  const suggestions = await suggestTagsForContent(c.env, { ...body, count });
+  return c.json({ suggestions });
 });
 
 // GET /api/ideas/:id
@@ -199,13 +216,43 @@ ideas.post('/:id/fetch-content', async (c) => {
   if (idea.type !== 'page') return badRequest('Only page ideas support content fetching');
   if (!idea.url) return badRequest('Idea has no URL');
 
-  const existing = (await getJson(c.env.R2, idea.r2_key)) ?? {};
+  const updated = await fetchAndStoreArticle(c.env, idea);
+  return c.json({ data: updated });
+});
+
+/**
+ * Fetch a page's article text, store it on the R2 blob, and re-project the
+ * FTS body so the article becomes searchable. Returns the updated blob.
+ */
+async function fetchAndStoreArticle(env, idea) {
+  const existing = (await getJson(env.R2, idea.r2_key)) ?? {};
   const text = await extractArticleText(idea.url);
 
   const updated = text ? { ...existing, text } : { ...existing, article: false };
-  await putJson(c.env.R2, idea.r2_key, updated);
-  return c.json({ data: updated });
-});
+  await putJson(env.R2, idea.r2_key, updated);
+
+  if (text) {
+    await setIdeaBody(env.DB, idea.id, projectBody(idea.type, updated));
+  }
+  return updated;
+}
+
+/**
+ * For a freshly saved page: fetch the full article (best-effort) and only
+ * then run enrichment, so the auto-summary and tagging see the whole article
+ * rather than just the meta description.
+ */
+async function fetchThenEnrich(env, ideaId) {
+  try {
+    const idea = await getIdea(env.DB, ideaId);
+    if (idea?.type === 'page' && idea.url) {
+      await fetchAndStoreArticle(env, idea);
+    }
+  } catch {
+    // Best-effort: a failed fetch still leaves the meta-description summary.
+  }
+  await enrichIdea(env, ideaId);
+}
 
 async function extractArticleText(url) {
   let response;

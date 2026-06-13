@@ -418,6 +418,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
+  if (message.type === 'SUGGEST_TAGS') {
+    apiPost('/api/ideas/suggest-tags', message.payload)
+      .then((data) => sendResponse({ ok: true, suggestions: data?.suggestions ?? [] }))
+      .catch((err) => sendResponse({ ok: false, error: err.message }));
+    return true;
+  }
+
   if (message.type === 'GET_PAGE_META') {
     extractPageMeta(message.tabId)
       .then((meta) => sendResponse({ ok: true, meta }))
