@@ -20,6 +20,7 @@ build:
 	  -configuration $(CONFIG) \
 	  -derivedDataPath $(BUILD_DIR) \
 	  -destination 'generic/platform=iOS' \
+	  -allowProvisioningUpdates \
 	  build
 
 ## Build and install on the first connected iPhone
