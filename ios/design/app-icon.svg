@@ -1,0 +1,55 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="40" y1="0" x2="980" y2="1024" gradientUnits="userSpaceOnUse">
+      <stop offset="0"    stop-color="#FF1E6F"/>
+      <stop offset="0.45" stop-color="#FF5A38"/>
+      <stop offset="0.8"  stop-color="#FFA32A"/>
+      <stop offset="1"    stop-color="#FFD23B"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="300" cy="220" r="780" gradientUnits="userSpaceOnUse">
+      <stop offset="0"   stop-color="#FFFFFF" stop-opacity="0.38"/>
+      <stop offset="0.55" stop-color="#FFFFFF" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="check" x1="430" y1="378" x2="594" y2="562" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FF9A2E"/>
+      <stop offset="1" stop-color="#FF5326"/>
+    </linearGradient>
+    <filter id="soft" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="14" stdDeviation="22" flood-color="#7A1030" flood-opacity="0.28"/>
+    </filter>
+    <filter id="softlite" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#7A1030" flood-opacity="0.22"/>
+    </filter>
+  </defs>
+
+  <!-- full-bleed background -->
+  <rect x="0" y="0" width="1024" height="1024" fill="url(#bg)"/>
+  <rect x="0" y="0" width="1024" height="1024" fill="url(#glow)"/>
+
+  <!-- fanned cards behind, crisp -->
+  <g transform="translate(512 478)" filter="url(#softlite)">
+    <rect x="-152" y="-208" width="304" height="416" rx="40" fill="#FFE9EC" transform="rotate(-14)"/>
+    <rect x="-152" y="-208" width="304" height="416" rx="40" fill="#FFF4EC" transform="rotate(14)"/>
+  </g>
+
+  <!-- bookmark / front card with notch -->
+  <path d="M 366 268
+           Q 366 246 388 246
+           L 636 246
+           Q 658 246 658 268
+           L 658 730
+           L 512 640
+           L 366 730
+           Z" fill="#FFFFFF" filter="url(#soft)"/>
+
+  <!-- check badge -->
+  <circle cx="512" cy="470" r="94" fill="url(#check)"/>
+  <path d="M 469 471 L 500 502 L 559 440"
+        fill="none" stroke="#FFFFFF" stroke-width="27"
+        stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- sparkles -->
+  <path d="M 246 296 l 15 36 l 36 15 l -36 15 l -15 36 l -15 -36 l -36 -15 l 36 -15 z" fill="#FFFFFF" opacity="0.95"/>
+  <path d="M 800 356 l 11 26 l 26 11 l -26 11 l -11 26 l -11 -26 l -26 -11 l 26 -11 z" fill="#FFFFFF" opacity="0.9"/>
+  <path d="M 770 706 l 8 20 l 20 8 l -20 8 l -8 20 l -8 -20 l -20 -8 l 20 -8 z" fill="#FFFFFF" opacity="0.75"/>
+</svg>
