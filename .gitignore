@@ -11,3 +11,6 @@ build/
 # Xcode
 ios/.build/
 xcuserdata/
+
+# pnpm-only repo; npm lockfiles are stray
+package-lock.json

@@ -20,7 +20,8 @@
   "pnpm": {
     "overrides": {
       "picomatch": ">=4.0.4",
-      "cookie": ">=0.7.0"
+      "cookie": ">=0.7.0",
+      "ws": ">=8.20.1"
     }
   },
   "devDependencies": {
