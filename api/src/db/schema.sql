@@ -43,6 +43,9 @@ CREATE INDEX IF NOT EXISTS idx_notes_idea       ON notes(idea_id);
 CREATE INDEX IF NOT EXISTS idx_media_idea       ON media(idea_id);
 CREATE INDEX IF NOT EXISTS idx_ideas_type       ON ideas(type);
 CREATE INDEX IF NOT EXISTS idx_ideas_created    ON ideas(created_at DESC);
+-- Composite index for the hot list query (type + cursor pagination); without
+-- it each page read ~1.5k rows. Applied to the live DB 2026-08-24.
+CREATE INDEX IF NOT EXISTS idx_ideas_type_created ON ideas(type, created_at DESC);
 
 CREATE TABLE IF NOT EXISTS oauth_clients (
   client_id    TEXT PRIMARY KEY,
