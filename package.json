@@ -21,11 +21,17 @@
     "overrides": {
       "picomatch": ">=4.0.4",
       "cookie": ">=0.7.0",
-      "ws": ">=8.20.1"
+      "ws": ">=8.20.1",
+      "undici": ">=7.29.0",
+      "postcss": ">=8.5.23",
+      "@sveltejs/kit": ">=2.70.2",
+      "sharp": ">=0.35.0",
+      "esbuild": ">=0.28.1",
+      "@vitest/mocker": ">=4.1.11"
     }
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.10",
-    "vitest": "^4.1.2"
+    "vitest": "^4.1.11"
   }
 }

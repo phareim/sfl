@@ -10,8 +10,8 @@
     "db:init:local": "wrangler d1 execute sfl-db --local --file=src/db/schema.sql"
   },
   "dependencies": {
-    "hono": "^4.12.25",
-    "nanoid": "^5.0.7"
+    "hono": "^4.13.5",
+    "nanoid": "^5.1.16"
   },
   "devDependencies": {
     "wrangler": "^4.80.0"
