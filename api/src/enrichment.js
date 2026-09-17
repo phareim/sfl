@@ -1,5 +1,6 @@
 import { getIdea, getIdeaNotes, listIdeas, projectBody, searchIdeas, setIdeaBody } from './db/ideas.js';
 import { TEXT_MODEL } from './lib/ai.js';
+import { tagIdsFromJev } from './lib/jev-tagger.js';
 import { generateId } from './lib/nanoid.js';
 import { getJson, putJson } from './lib/r2.js';
 
@@ -175,20 +176,19 @@ async function applyTags(env, idea, description) {
 
     if (tags.length === 0) return;
 
-    const tagList = tags.map((t) => `${t.id}: ${t.title}`).join('\n');
-    const messages = [
-      {
-        role: 'system',
-        content:
-          'You are a tagging assistant. Given an idea and a list of available tags, return a JSON array of tag IDs that best describe the idea. Return only the JSON array, nothing else. If no tags fit, return [].',
-      },
-      {
-        role: 'user',
-        content: `Idea:\n${description}\n\nAvailable tags:\n${tagList}`,
-      },
-    ];
+    let ids;
+    if (env.TYPESAFE_API_KEY) {
+      try {
+        ids = await tagIdsFromJev(env.TYPESAFE_API_KEY, idea, tags);
+      } catch (err) {
+        console.error('Jev tagging failed, falling back to llama tagger:', err);
+      }
+    }
 
-    const ids = await callAI(env, messages, new Set(tags.map((t) => t.id)));
+    if (!ids) {
+      ids = await tagIdsFromLlama(env, description, tags);
+    }
+
     if (ids.length === 0) return;
 
     const now = Date.now();
@@ -203,6 +203,23 @@ async function applyTags(env, idea, description) {
   } catch {
     // Best-effort
   }
+}
+
+async function tagIdsFromLlama(env, description, tags) {
+  const tagList = tags.map((t) => `${t.id}: ${t.title}`).join('\n');
+  const messages = [
+    {
+      role: 'system',
+      content:
+        'You are a tagging assistant. Given an idea and a list of available tags, return a JSON array of tag IDs that best describe the idea. Return only the JSON array, nothing else. If no tags fit, return [].',
+    },
+    {
+      role: 'user',
+      content: `Idea:\n${description}\n\nAvailable tags:\n${tagList}`,
+    },
+  ];
+
+  return callAI(env, messages, new Set(tags.map((t) => t.id)));
 }
 
 async function applyConnections(env, idea, description) {

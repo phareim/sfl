@@ -66,6 +66,12 @@ CLI commands (`cli/bin/sfl.js`):
 
 One-shot cleanup utility at `api/scripts/cleanup-tags.js` — `--dry-run` (default) prints the planned merges/renames against live inventory; `--apply` executes.
 
+## Auto-tagging (2026-09-17)
+
+Enrichment's auto-tag step (`applyTags` in `api/src/enrichment.js`) now prefers **TypeSafe Jev** (`api/src/lib/jev-tagger.js`) over the old llama-based tagger, which badly over-applied tags. When the `TYPESAFE_API_KEY` secret is set, each new idea's `{title, summary, url}` is scored against a curated 27-tag vocabulary (`TAG_VOCABULARY`) via `POST https://api.typesafe.ai/v1/systemone`; tags scoring ≥ `JEV_THRESHOLD` (0.6) are applied, highest first, capped at `JEV_MAX_TAGS` (5). Only vocabulary tags are ever auto-applied — every other tag in the DB stays manual-only. Tag titles are resolved to existing tag ids case-insensitively; unmatched titles are skipped (no new tags are created).
+
+On any Jev error (network failure, non-2xx, no `TYPESAFE_API_KEY` set) it falls back to the original llama tagger (`tagIdsFromLlama`), unchanged. Existing ideas were not retagged — this only affects ideas created from now on. `buildJevQuestions`/`pickJevTags` are pure and unit-tested in `api/src/lib/jev-tagger.test.js` (`pnpm test`, vitest).
+
 ## Workflow rules
 
 - **Before committing:** run tests and clean up the code (remove debug logs, tidy formatting).
