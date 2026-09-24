@@ -24,7 +24,7 @@ Deploys entirely to Cloudflare (Worker + Pages + D1 + R2). Single-user. Push to 
 
 Key data model: D1 holds indexed metadata; type-specific content lives as JSON in R2 at `ideas/{id}/data.json`. Auth via Bearer token (`API_KEY`) or OAuth token. Schema source of truth: `api/src/db/schema.sql`.
 
-When listing or creating `meta` ideas, always pass the current repo's GitHub URL: `list_ideas(type="meta", project="https://github.com/owner/repo")`. Detect the project URL from `git remote get-url origin`.
+Meta ideas are retired (2026-08-27); per-repo backlogs live in sleeper-tasks. The meta endpoints and CLI commands below still run, but `sfl meta board` lists no projects (2026-09-24).
 
 ## Build commands
 
@@ -37,24 +37,23 @@ cd api && pnpm run db:init                # apply schema to remote D1
 cd api && pnpm run db:init:local          # apply schema to local D1
 ```
 
-No test framework, linter, or formatter is configured.
+Tests: `pnpm test` at the repo root (vitest). No linter or formatter is configured.
 
 ## Conventions
 
 - **Keep concepts close.** Code that belongs together stays together. Don't scatter related logic across layers for the sake of abstraction.
-- **Write straight-forward, readable code.** Prefer clarity over cleverness. The simplest solution that works correctly is the right solution.
 - **No premature abstraction.** Don't create helpers or utilities for one-off operations. Three similar lines of code is fine; don't extract an abstraction until the pattern is proven and reused.
 - **Add tests where complexity warrants it.** Test non-trivial logic — parsing, data transformations, edge cases. Don't test trivial wrappers. Tests serve as documentation for the reasoning behind tricky code.
 - **No unnecessary comments.** Comments explain *why*, not *what*. Self-evident code needs no annotation.
 - **The API schema is the source of truth.** When in doubt about data shape, refer to `api/src/db/schema.sql` and the route handlers in `api/src/routes/`.
 
-## Tag + meta primitives (G2 + G7, 2026-05-25)
+## Tag and meta primitives
 
 The Worker exposes tag-merge / rename and a per-project meta digest:
 
 - `PUT /api/tags/:id { title }` — rename a tag; 400/404/409 as expected
 - `POST /api/tags/:id/merge { into }` — rewires every `tagged_with` edge from `:id` to `into`, dedupes via row-by-row UPDATE (UNIQUE collision → DELETE the loser; counted as `deduped`), then deletes the source tag. Returns `{ merged, into, rewired, deduped }`. FTS resyncs automatically via existing triggers.
-- `GET /api/meta/digest?range=7d|14d|30d` — done-this-period grouped by project; brief consumer in `~/chat/backend/src/services/briefBuilder.ts` renders this as a "Shipped this week" section.
+- `GET /api/meta/digest?range=7d|14d|30d` — done-this-period grouped by project. No consumer found in `~/chat` (checked 2026-09-24).
 
 CLI commands (`cli/bin/sfl.js`):
 
@@ -66,11 +65,11 @@ CLI commands (`cli/bin/sfl.js`):
 
 One-shot cleanup utility at `api/scripts/cleanup-tags.js` — `--dry-run` (default) prints the planned merges/renames against live inventory; `--apply` executes.
 
-## Auto-tagging (2026-09-17)
+## Auto-tagging
 
-Enrichment's auto-tag step (`applyTags` in `api/src/enrichment.js`) now prefers **TypeSafe Jev** (`api/src/lib/jev-tagger.js`) over the old llama-based tagger, which badly over-applied tags. When the `TYPESAFE_API_KEY` secret is set, each new idea's `{title, summary, url}` is scored against a curated 27-tag vocabulary (`TAG_VOCABULARY`) via `POST https://api.typesafe.ai/v1/systemone`; tags scoring ≥ `JEV_THRESHOLD` (0.6) are applied, highest first, capped at `JEV_MAX_TAGS` (5). Only vocabulary tags are ever auto-applied — every other tag in the DB stays manual-only. Tag titles are resolved to existing tag ids case-insensitively; unmatched titles are skipped (no new tags are created).
+Enrichment's auto-tag step (`applyTags` in `api/src/enrichment.js`) uses **TypeSafe Jev** (`api/src/lib/jev-tagger.js`) first, because the llama tagger over-applies tags. When the `TYPESAFE_API_KEY` secret is set, each new idea's `{title, summary, url}` is scored against a curated 27-tag vocabulary (`TAG_VOCABULARY`) via `POST https://api.typesafe.ai/v1/systemone`; tags scoring ≥ `JEV_THRESHOLD` (0.6) are applied, highest first, capped at `JEV_MAX_TAGS` (5). Only vocabulary tags are ever auto-applied — every other tag in the DB stays manual-only. Tag titles are resolved to existing tag ids case-insensitively; unmatched titles are skipped (no new tags are created).
 
-On any Jev error (network failure, non-2xx, no `TYPESAFE_API_KEY` set) it falls back to the original llama tagger (`tagIdsFromLlama`), unchanged. Existing ideas were not retagged — this only affects ideas created from now on. `buildJevQuestions`/`pickJevTags` are pure and unit-tested in `api/src/lib/jev-tagger.test.js` (`pnpm test`, vitest).
+On any Jev error (network failure, non-2xx, no `TYPESAFE_API_KEY` set) it falls back to the original llama tagger (`tagIdsFromLlama`), unchanged. Ideas created before 2026-09-17 were tagged by llama and have not been retagged. `buildJevQuestions`/`pickJevTags` are pure and unit-tested in `api/src/lib/jev-tagger.test.js` (`pnpm test`, vitest).
 
 ## Workflow rules
 
