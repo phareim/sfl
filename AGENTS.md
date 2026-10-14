@@ -15,7 +15,7 @@ Deploys entirely to Cloudflare (Worker + Pages + D1 + R2). Single-user. Push to 
 | Extension | Chrome MV3 — context menus, type-aware popup (incl. meta), social post detection |
 | iOS | SwiftUI + Share Extension + Chat tab |
 | macOS | Swift menu bar app — global hotkey (⌃⌥I), text grabber, type/tag/project picker |
-| CLI | Node.js `sfl` command — browse/search ideas, manage meta tasks from terminal |
+| CLI | Node.js `sfl` command — browse and search ideas from the terminal |
 | MCP | Streamable HTTP at `/mcp`; OAuth 2.0 server at `/oauth` for Claude.ai |
 | AI | Workers AI (`@cf/meta/llama-3.1-8b-instruct`) — enrichment + chat replies |
 | Chat | Persistent message thread via D1; AI replies or webhook forwarding |
