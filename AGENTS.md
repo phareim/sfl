@@ -24,7 +24,7 @@ Deploys entirely to Cloudflare (Worker + Pages + D1 + R2). Single-user. Push to 
 
 Key data model: D1 holds indexed metadata; type-specific content lives as JSON in R2 at `ideas/{id}/data.json`. Auth via Bearer token (`API_KEY`) or OAuth token. Schema source of truth: `api/src/db/schema.sql`.
 
-Meta ideas are retired (2026-08-27); per-repo backlogs live in sleeper-tasks. The meta endpoints and CLI commands below still run, but `sfl meta board` lists no projects (2026-09-24).
+Meta ideas are retired (2026-08-27); per-repo backlogs live in sleeper-tasks. The meta endpoints and `sfl meta` commands still run but hold no live projects; don't build on them.
 
 ## Build commands
 
@@ -60,8 +60,6 @@ CLI commands (`cli/bin/sfl.js`):
 - `sfl tags` / `sfl tags list` — usage-sorted inventory
 - `sfl tags rename <id-or-title> <new-title>`
 - `sfl tags merge <source-id-or-title> <into-id-or-title>` — accepts title with case-insensitive fallback; bails on ambiguity
-- `sfl meta board` — project × {draft, in_progress, done-7d} grid, sorted by most-recent activity
-- `sfl meta stale [--days N]` — draft/in_progress metas older than N days (default 30); prints `nothing stale` on empty
 
 One-shot cleanup utility at `api/scripts/cleanup-tags.js` — `--dry-run` (default) prints the planned merges/renames against live inventory; `--apply` executes.
 
