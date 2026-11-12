@@ -486,7 +486,7 @@ async function cmdIdeas(config, args = []) {
   }
 
   console.log('\nIdeas\n');
-  const idW = 9;
+  const idW = 22; // the whole id: the API does not resolve a prefix
   const typeW = 10;
   console.log(`  ${'ID'.padEnd(idW)} ${'TYPE'.padEnd(typeW)} TITLE`);
 
@@ -494,7 +494,7 @@ async function cmdIdeas(config, args = []) {
     console.log('  (none)');
   } else {
     for (const idea of filtered) {
-      const id = idea.id.slice(0, 8).padEnd(idW);
+      const id = idea.id.padEnd(idW);
       const t = (idea.type ?? '-').padEnd(typeW);
       const title = idea.title ?? idea.url ?? '(untitled)';
       console.log(`  ${id} ${t} ${title}`);
@@ -524,12 +524,12 @@ async function cmdIdeasSearch(config, args = []) {
   }
 
   console.log(`\nSearch: "${query}"\n`);
-  const idW = 9;
+  const idW = 22; // the whole id: the API does not resolve a prefix
   const typeW = 10;
   console.log(`  ${'ID'.padEnd(idW)} ${'TYPE'.padEnd(typeW)} TITLE`);
 
   for (const idea of ideas) {
-    const id = idea.id.slice(0, 8).padEnd(idW);
+    const id = idea.id.padEnd(idW);
     const t = (idea.type ?? '-').padEnd(typeW);
     const title = idea.title ?? idea.url ?? '(untitled)';
     console.log(`  ${id} ${t} ${title}`);
