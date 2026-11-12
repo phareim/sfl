@@ -68,6 +68,17 @@ describe('Ideas', () => {
     expect(json.nextCursor).toBeNull();
   });
 
+  it('answers ?ids= with those rows only, and leaves out an id it does not know', async () => {
+    const make = async (title) => (await (await req('/api/ideas', { method: 'POST', body: { type: 'note', title, data: { text: title } } })).json()).idea.id;
+    const a = await make('one');
+    await make('two');
+    const res = await req(`/api/ideas?ids=${a},nope`);
+    expect(res.status).toBe(200);
+    expect((await res.json()).ideas.map((i) => i.id)).toEqual([a]);
+    const many = Array.from({ length: 101 }, (_, i) => `x${i}`).join(',');
+    expect((await req(`/api/ideas?ids=${many}`)).status).toBe(400);
+  });
+
   it('creates an idea', async () => {
     const res = await req('/api/ideas', {
       method: 'POST',

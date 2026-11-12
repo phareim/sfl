@@ -77,6 +77,17 @@ export async function getIdea(db, id) {
 }
 
 /**
+ * Fetch the idea rows for a list of ids, in one query. Ids that match nothing
+ * are simply absent from the answer.
+ */
+export async function getIdeasByIds(db, ids) {
+  if (!ids.length) return [];
+  const marks = ids.map(() => '?').join(',');
+  const { results } = await db.prepare(`SELECT * FROM ideas WHERE id IN (${marks})`).bind(...ids).all();
+  return results ?? [];
+}
+
+/**
  * Fetch the first idea row matching a URL (and type, when given).
  * Returns null if not found. Dedup is type-scoped so e.g. a quote
  * captured from a page doesn't collide with the page idea itself.

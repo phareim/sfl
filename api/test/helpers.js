@@ -197,6 +197,11 @@ export function createMockDB() {
       return { run: true };
     }
 
+    // SELECT * FROM ideas WHERE id IN (?, …)
+    if (s.includes('FROM ideas WHERE id IN (')) {
+      return { first: null, all: tables.ideas.filter((r) => params.includes(r.id)) };
+    }
+
     // SELECT * FROM ideas WHERE id = ?
     if (s.startsWith('SELECT') && s.includes('FROM ideas') && s.includes('WHERE id = ?') && !s.includes('JOIN')) {
       const row = tables.ideas.find((r) => r.id === params[0]) ?? null;

@@ -46,6 +46,8 @@ SFL is where the things Petter saves end up, whatever he was using when he saved
 
 Those clients read `id`, `type`, `title`, `url`, `summary`, `created_at` and post `{ type, title, url, summary, data }`. Several of them (the phone apps, the extension) cannot be redeployed from here, so `POST /api/ideas` keeps accepting what they send, `type: meta` included.
 
+`GET /api/ideas?ids=a,b,c` answers with those rows only (at most 100; a missing id is a deleted idea): the workbook asks it how its SFL cards stand.
+
 Search (`GET /api/ideas/search?q=`) takes plain words: `ftsQuery` in `api/src/db/ideas.js` quotes each one, all are required, and a trailing `*` matches by prefix.
 
 ## Build commands

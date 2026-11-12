@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { getAllConnections } from '../db/connections.js';
 import {
+  getIdeasByIds,
   deleteIdea,
   getIdea,
   getIdeaByUrl,
@@ -33,7 +34,14 @@ ideas.get('/search', async (c) => {
 
 // GET /api/ideas
 ideas.get('/', async (c) => {
-  const { type, tag, project, limit, cursor } = c.req.query();
+  const { type, tag, project, limit, cursor, ids } = c.req.query();
+  // ?ids=a,b,c: those rows and nothing else (at most 100), for a client that
+  // holds ideas and asks how they stand now. A missing id is a deleted idea.
+  if (ids !== undefined) {
+    const wanted = [...new Set(ids.split(',').map((s) => s.trim()).filter(Boolean))];
+    if (wanted.length > 100) return badRequest('at most 100 ids');
+    return c.json({ ideas: await getIdeasByIds(c.env.DB, wanted) });
+  }
   const result = await listIdeas(c.env.DB, { type, tag, url: project, limit, cursor });
   return c.json(result);
 });
