@@ -26,6 +26,28 @@ Key data model: D1 holds indexed metadata; type-specific content lives as JSON i
 
 Meta ideas are retired (2026-08-27); per-repo backlogs live in sleeper-tasks. The meta endpoints and `sfl meta` commands still run but hold no live projects; don't build on them.
 
+## Where SFL sits
+
+SFL is where the things Petter saves end up, whatever he was using when he saved them. It stores; reading happens in Reader, working in the workbook, refining in Taste.
+
+| In | How |
+|---|---|
+| iOS share sheet (SleeperShare in `~/chat/frontend`, and this repo's `ios/` app), Chrome extension, macOS menu bar app | `POST /api/ideas` |
+| inbox.phareim.no (`~/chat/inbox`) | an `idea` becomes a note, a `link` a page |
+| Reader (`~/github/reader/server/utils/sfl.ts`) | a highlight becomes a quote, an elevated article a page |
+| The workbook at thoughts.phareim.no (`~/github/arbeidsbok`) | «Spar i SFL» on a note, a text or an article card |
+
+| Out | How |
+|---|---|
+| Articles pipeline (`~/chat/articles`) | polls `GET /api/ideas?type=page`, extracts the text and feeds Reader's Found |
+| The workbook | lists and searches ideas and places them on the board as cards |
+| claude.ai | MCP at `/mcp` behind the OAuth server |
+| Terminal | `sfl ideas`, `sfl ideas search` |
+
+Those clients read `id`, `type`, `title`, `url`, `summary`, `created_at` and post `{ type, title, url, summary, data }`. Several of them (the phone apps, the extension) cannot be redeployed from here, so `POST /api/ideas` keeps accepting what they send, `type: meta` included.
+
+Search (`GET /api/ideas/search?q=`) takes plain words: `ftsQuery` in `api/src/db/ideas.js` quotes each one, all are required, and a trailing `*` matches by prefix.
+
 ## Build commands
 
 ```bash

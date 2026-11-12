@@ -306,15 +306,14 @@ export function createMockDB() {
 
     // FTS search
     if (s.includes('ideas_fts MATCH')) {
-      const q = (params[0] ?? '').toLowerCase();
+      // The query is what ftsQuery builds: quoted terms, all required.
+      const terms = [...(params[0] ?? '').toLowerCase().matchAll(/"([^"]+)"/g)].map((m) => m[1]);
       const limit = Number(params[1]) || 20;
       const rows = tables.ideas
-        .filter(
-          (r) =>
-            (r.title && r.title.toLowerCase().includes(q)) ||
-            (r.summary && r.summary.toLowerCase().includes(q)) ||
-            (r.body && r.body.toLowerCase().includes(q)),
-        )
+        .filter((r) => {
+          const text = `${r.title ?? ''} ${r.summary ?? ''} ${r.body ?? ''}`.toLowerCase();
+          return terms.length > 0 && terms.every((t) => text.includes(t));
+        })
         .slice(0, limit);
       return { all: rows };
     }

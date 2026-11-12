@@ -191,8 +191,27 @@ export async function deleteIdea(db, id) {
  * Full-text search across title + summary + body.
  * Returns matching idea rows.
  */
+/**
+ * A user's words as an FTS5 query: every word a quoted term, all of them required. A word ending in `*` matches by
+ * prefix. Quoting keeps apostrophes, colons, hyphens and FTS keywords in a query from being read as syntax, which
+ * SQLite answers with an error. Returns '' when there is nothing to search for.
+ */
+export function ftsQuery(input) {
+  return String(input ?? '')
+    .split(/\s+/)
+    .map((word) => {
+      const prefix = word.endsWith('*');
+      const term = word.replace(/["*]/g, '');
+      return term ? `"${term}"${prefix ? '*' : ''}` : '';
+    })
+    .filter(Boolean)
+    .join(' ');
+}
+
 export async function searchIdeas(db, query, { limit = 20 } = {}) {
   limit = Math.min(Number(limit) || 20, 100);
+  const match = ftsQuery(query);
+  if (!match) return [];
   const { results } = await db
     .prepare(
       `SELECT i.* FROM ideas i
@@ -201,7 +220,7 @@ export async function searchIdeas(db, query, { limit = 20 } = {}) {
        ORDER BY rank
        LIMIT ?`,
     )
-    .bind(query, limit)
+    .bind(match, limit)
     .all();
   return results;
 }
