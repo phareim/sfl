@@ -22,16 +22,18 @@
       "picomatch": ">=4.0.4",
       "cookie": "^0.7.0",
       "ws": ">=8.20.1",
-      "undici": ">=7.29.0",
+      "undici": ">=8.12.2",
       "postcss": ">=8.5.23",
-      "@sveltejs/kit": ">=2.70.2",
-      "sharp": ">=0.35.0",
+      "@sveltejs/kit": "^2.70.2",
+      "sharp": ">=0.35.5",
       "esbuild": ">=0.28.1",
-      "@vitest/mocker": ">=4.1.11"
+      "@vitest/mocker": ">=5.0.3",
+      "devalue": "^5.9.3",
+      "source-map-js": ">=1.2.2"
     }
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.13",
-    "vitest": "^5.0.0"
+    "vitest": "^5.0.3"
   }
 }
