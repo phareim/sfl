@@ -19,7 +19,7 @@ export function projectBody(kind, blob, notesRow) {
 
   switch (kind) {
     case 'note': {
-      body = notesRow?.body ?? blob.body ?? blob.text ?? '';
+      body = notesRow?.body ?? blob.body ?? blob.text ?? blob.content ?? '';
       break;
     }
     case 'page': {
