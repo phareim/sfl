@@ -24,11 +24,11 @@ Deploys entirely to Cloudflare (Worker + Pages + D1 + R2). Single-user. Push to 
 
 Key data model: D1 holds indexed metadata; type-specific content lives as JSON in R2 at `ideas/{id}/data.json`. Auth via Bearer token (`API_KEY`) or OAuth token. Schema source of truth: `api/src/db/schema.sql`.
 
-Meta ideas are retired (2026-08-27); per-repo backlogs live in sleeper-tasks. The meta endpoints and `sfl meta` commands still run but hold no live projects; don't build on them.
+Meta ideas are retired; per-repo backlogs live in sleeper-tasks. The meta endpoints and `sfl meta` commands still run but hold no live projects; don't build on them.
 
 ## Where SFL sits
 
-SFL is where the things Petter saves end up, whatever he was using when he saved them. It stores; reading happens in Reader, working in the workbook, refining in Taste.
+SFL is where the things Petter saves end up, whatever he used to save them. It stores; reading happens in Reader, working in the workbook, refining in Taste.
 
 | In | How |
 |---|---|
@@ -71,9 +71,9 @@ Tests: `pnpm test` at the repo root (vitest). No linter or formatter is configur
 - **No unnecessary comments.** Comments explain *why*, not *what*. Self-evident code needs no annotation.
 - **The API schema is the source of truth.** When in doubt about data shape, refer to `api/src/db/schema.sql` and the route handlers in `api/src/routes/`.
 
-## Tag and meta primitives
+## Tag primitives and the retired meta digest
 
-The Worker exposes tag-merge / rename and a per-project meta digest:
+The Worker exposes tag-merge / rename and a per-project meta digest (retired with meta ideas; no live projects):
 
 - `PUT /api/tags/:id { title }` — rename a tag; 400/404/409 as expected
 - `POST /api/tags/:id/merge { into }` — rewires every `tagged_with` edge from `:id` to `into`, dedupes via row-by-row UPDATE (UNIQUE collision → DELETE the loser; counted as `deduped`), then deletes the source tag. Returns `{ merged, into, rewired, deduped }`. FTS resyncs automatically via existing triggers.
@@ -91,7 +91,7 @@ One-shot cleanup utility at `api/scripts/cleanup-tags.js` — `--dry-run` (defau
 
 Enrichment's auto-tag step (`applyTags` in `api/src/enrichment.js`) uses **TypeSafe Jev** (`api/src/lib/jev-tagger.js`) first, because the llama tagger over-applies tags. When the `TYPESAFE_API_KEY` secret is set, each new idea's `{title, summary, url}` is scored against a curated 27-tag vocabulary (`TAG_VOCABULARY`) via `POST https://api.typesafe.ai/v1/systemone`; tags scoring ≥ `JEV_THRESHOLD` (0.6) are applied, highest first, capped at `JEV_MAX_TAGS` (5). Only vocabulary tags are ever auto-applied — every other tag in the DB stays manual-only. Tag titles are resolved to existing tag ids case-insensitively; unmatched titles are skipped (no new tags are created).
 
-On any Jev error (network failure, non-2xx, no `TYPESAFE_API_KEY` set) it falls back to the original llama tagger (`tagIdsFromLlama`), unchanged. Ideas created before 2026-09-17 were tagged by llama and have not been retagged. `buildJevQuestions`/`pickJevTags` are pure and unit-tested in `api/src/lib/jev-tagger.test.js` (`pnpm test`, vitest).
+On any Jev error (network failure, non-2xx, no `TYPESAFE_API_KEY` set) it falls back to the original llama tagger (`tagIdsFromLlama`), unchanged. Ideas created before Jev tagging started (2026-09-17) were tagged by llama and are not retagged. `buildJevQuestions`/`pickJevTags` are pure and unit-tested in `api/src/lib/jev-tagger.test.js` (`pnpm test`, vitest).
 
 ## Workflow rules
 
