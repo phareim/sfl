@@ -24,7 +24,7 @@
       "ws": ">=8.20.1",
       "undici": ">=8.12.2",
       "postcss": ">=8.5.23",
-      "@sveltejs/kit": "^2.70.2",
+      "@sveltejs/kit": "^2.70.4",
       "sharp": ">=0.35.5",
       "esbuild": ">=0.28.1",
       "@vitest/mocker": ">=5.0.3",
