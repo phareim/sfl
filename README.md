@@ -348,6 +348,7 @@ Routes under `/api` and `/mcp` require `Authorization: Bearer <token>`, where th
 
 ```
 GET    /api/ideas                     list (paginated, ?type=, ?tag=, ?project=, ?limit=, ?cursor=)
+                                      a page runs past limit to finish a run of equal created_at; nextCursor is that created_at
 GET    /api/ideas?ids=a,b,c           those rows only (at most 100; a missing id is a deleted idea)
 POST   /api/ideas                     create idea
 GET    /api/ideas/search?q=term       FTS5 full-text search
