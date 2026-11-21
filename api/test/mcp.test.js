@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import app from '../src/app.js';
 import { createMockEnv } from './helpers.js';
 import { createSqliteD1, sqliteAvailable } from './sqlite-d1.js';
@@ -193,7 +193,71 @@ describe.skipIf(!sqliteAvailable)('MCP tool calls that fail leave nothing behind
   it('list_ideas and search_ideas read a limit that is no positive whole number as the default', async () => {
     for (let i = 0; i < 25; i++) await callTool('capture_idea', { content: `owl number ${i}` });
     waitUntilCalls.length = 0;
+    // Distinct timestamps: a page that ends inside a run of equal ones runs to the end of the run.
+    env.DB._db.prepare('UPDATE ideas SET created_at = rowid').run();
     expect((await callTool('list_ideas', { limit: -5 })).ideas).toHaveLength(20);
     expect((await callTool('search_ideas', { q: 'owl', limit: -5 })).ideas).toHaveLength(20);
+  });
+});
+
+describe.skipIf(!sqliteAvailable)('MCP round two', () => {
+  beforeEach(() => {
+    env = createMockEnv({ DB: createSqliteD1() });
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('create_idea for a page with a url fetches the article before enriching, as REST does', async () => {
+    const fetchSpy = vi.fn(async () => ({ ok: false, headers: { get: () => null } }));
+    vi.stubGlobal('fetch', fetchSpy);
+    env.AI = { run: async () => ({ response: '' }) };
+
+    const { idea } = await callTool('create_idea', { type: 'page', title: 'An article', url: 'https://example.com/a' });
+    await Promise.all(waitUntilCalls);
+
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    expect(fetchSpy.mock.calls[0][0]).toBe('https://example.com/a');
+    const { data } = await callTool('get_idea', { id: idea.id });
+    expect(data).toEqual({ article: false });
+  });
+
+  it('create_idea for a note fetches nothing', async () => {
+    const fetchSpy = vi.fn();
+    vi.stubGlobal('fetch', fetchSpy);
+    env.AI = { run: async () => ({ response: '' }) };
+    await callTool('create_idea', { type: 'note', title: 'A note', url: 'https://example.com/n', data: { text: 'x' } });
+    await Promise.all(waitUntilCalls);
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it('tool texts give no meta guidance and say once where tasks live, while type meta and project still work', async () => {
+    const res = await app.request(
+      '/mcp',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer test-api-key' },
+        body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list' }),
+      },
+      env,
+      executionCtx,
+    );
+    const { tools } = (await res.json()).result;
+    for (const tool of tools) {
+      const text = JSON.stringify(tool);
+      expect(text, tool.name).not.toMatch(/meta|backlog item|start of a session|in_progress|git remote/i);
+    }
+    for (const name of ['list_ideas', 'create_idea', 'update_idea']) {
+      const tool = tools.find((t) => t.name === name);
+      expect(tool.description.match(/Tasks and backlogs live in sleeper-tasks, not here\./g), name).toHaveLength(1);
+    }
+    expect(tools.find((t) => t.name === 'list_ideas').inputSchema.properties.project).toBeDefined();
+
+    const project = 'https://github.com/owner/repo';
+    const { idea } = await callTool('create_idea', { type: 'meta', title: 'A task', data: { project } });
+    expect(idea.url).toBe(project);
+    const { ideas } = await callTool('list_ideas', { type: 'meta', project });
+    expect(ideas.map((i) => i.id)).toEqual([idea.id]);
   });
 });

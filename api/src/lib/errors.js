@@ -6,8 +6,8 @@ export function badRequest(message = 'Bad request') {
   return Response.json({ error: message }, { status: 400 });
 }
 
-export function unauthorized() {
-  return Response.json({ error: 'Unauthorized' }, { status: 401 });
+export function unauthorized(headers) {
+  return Response.json({ error: 'Unauthorized' }, { status: 401, headers });
 }
 
 export function serverError(message = 'Internal server error') {

@@ -14,6 +14,7 @@ import { insertNote } from '../db/notes.js';
 import { enrichIdea } from '../enrichment.js';
 import { generateId } from '../lib/nanoid.js';
 import { dataKey, getJson, putJson } from '../lib/r2.js';
+import { fetchThenEnrich } from './ideas.js';
 import { resyncNoteIdeaBody } from './notes.js';
 
 const PROTOCOL_VERSION = '2024-11-05';
@@ -57,16 +58,15 @@ const TOOLS = [
   {
     name: 'list_ideas',
     description:
-      'List ideas, optionally filtered by type or tag. When listing meta ideas (type="meta"), always pass the `project` parameter with the GitHub repo URL of the current working repository (detect from git remote). Meta ideas are the project backlog — check them at the start of a session to see what needs doing.',
+      'List ideas, newest first, optionally filtered by type or tag. Tasks and backlogs live in sleeper-tasks, not here.',
     inputSchema: {
       type: 'object',
       properties: {
-        type: { type: 'string', description: 'Filter by type: note, page, quote, book, tweet, image, tag, meta' },
+        type: { type: 'string', description: 'Filter by type: note, page, quote, book, tweet, image, video, tag' },
         tag: { type: 'string', description: 'Filter by tag ID or tag title' },
         project: {
           type: 'string',
-          description:
-            'GitHub repo URL to filter meta ideas by project (e.g. https://github.com/owner/repo). Detect from git remote of the current working directory.',
+          description: 'Filter by the idea url (exact match).',
         },
         limit: { type: 'number', description: 'Max results (default 20)' },
         cursor: { type: 'string', description: 'Pagination cursor from previous response' },
@@ -87,7 +87,7 @@ const TOOLS = [
   {
     name: 'create_idea',
     description:
-      'Create a new idea of any type (note, page, quote, book, tweet, image, tag, meta). For meta type, always include `data.project` with the GitHub repo URL of the current working repository. Meta ideas track feature/task backlog items — set status to "in_progress" when starting work, "done" when complete.',
+      'Create a new idea of any type (note, page, quote, book, tweet, image, tag). A page with a url gets its article fetched. Tasks and backlogs live in sleeper-tasks, not here.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -97,8 +97,7 @@ const TOOLS = [
         summary: { type: 'string', description: 'Short summary' },
         data: {
           type: 'object',
-          description:
-            'Type-specific content blob. For meta: { project (GitHub repo URL), priority (A/B/C/D), status (draft/in_progress/done), git_commit, implementation_details }',
+          description: 'Type-specific content blob, e.g. { text } for a note or quote.',
         },
       },
       required: ['type'],
@@ -144,7 +143,7 @@ const TOOLS = [
   {
     name: 'update_idea',
     description:
-      'Update an existing idea. Pass only the fields you want to change. `data` is merged (patched) into the existing data blob — you only need to include the keys you want to update.\n\nMeta idea lifecycle: when you start working on a meta idea, update its status to "in_progress". When the feature is implemented, mark it "done". Example: update_idea({ id, data: { status: "done", git_commit: "<sha>" } }).',
+      'Update an existing idea. Pass only the fields you want to change. `data` is merged (patched) into the existing data blob — you only need to include the keys you want to update. Tasks and backlogs live in sleeper-tasks, not here.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -153,8 +152,7 @@ const TOOLS = [
         summary: { type: 'string' },
         data: {
           type: 'object',
-          description:
-            'Partial data to merge into the existing data blob. For meta ideas: { status, priority, git_commit, implementation_details, project }. Valid status values: draft, in_progress, done.',
+          description: 'Partial data to merge into the existing data blob.',
         },
       },
       required: ['id'],
@@ -282,7 +280,8 @@ async function executeTool(name, args, env, ctx) {
         updated_at: now,
       });
 
-      ctx?.waitUntil(enrichIdea(env, id));
+      // Same as REST POST /api/ideas: a page fetches its article first, so the summary sees the whole text.
+      ctx?.waitUntil(args.type === 'page' && url ? fetchThenEnrich(env, id) : enrichIdea(env, id));
 
       const idea = await getIdea(env.DB, id);
       return { idea };

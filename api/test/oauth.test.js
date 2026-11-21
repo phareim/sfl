@@ -128,6 +128,130 @@ describe.skipIf(!sqliteAvailable)('OAuth server', () => {
     });
   });
 
+  describe('round two: the rules the workbook follows', () => {
+    it("registers only Claude's callbacks and loopback http URLs", async () => {
+      for (const ok of [
+        ['https://claude.ai/api/mcp/auth_callback'],
+        ['https://claude.com/api/mcp/auth_callback'],
+        ['http://localhost:53682/callback'],
+        ['http://127.0.0.1:8976/oauth/callback', 'https://claude.ai/api/mcp/auth_callback'],
+      ]) {
+        expect((await request('/oauth/register', json({ redirect_uris: ok }))).status, ok.join()).toBe(201);
+      }
+      for (const bad of [
+        ['https://evil.example/cb'],
+        ['https://claude.ai/api/mcp/auth_callback', 'https://evil.example/cb'],
+        ['https://claude.ai.evil.example/api/mcp/auth_callback'],
+        ['https://claude.ai/api/mcp/auth_callback/../x'],
+        ['http://claude.ai/api/mcp/auth_callback'],
+        ['https://localhost:53682/callback'],
+        ['http://localhost/callback'],
+        ['http://user:pw@localhost:53682/callback'],
+        ['http://localhost.evil.example:53682/callback'],
+        ['javascript:alert(1)'],
+        [42],
+      ]) {
+        const res = await request('/oauth/register', json({ redirect_uris: bad }));
+        expect(res.status, JSON.stringify(bad)).toBe(400);
+        expect((await res.json()).error).toBe('invalid_redirect_uri');
+      }
+      expect(env.DB._db.prepare('SELECT COUNT(*) AS n FROM oauth_clients').get().n).toBe(4);
+    });
+
+    it('keeps a client registered earlier with another redirect working', async () => {
+      env.DB._db
+        .prepare('INSERT INTO oauth_clients (client_id, redirect_uris, created_at) VALUES (?, ?, ?)')
+        .run('old-client', JSON.stringify(['https://old.example/cb']), 1);
+      const res = await request(
+        '/oauth/authorize',
+        form({
+          client_id: 'old-client',
+          redirect_uri: 'https://old.example/cb',
+          state: 's',
+          code_challenge: CHALLENGE,
+          code_challenge_method: 'S256',
+          api_key: 'test-api-key',
+        }),
+      );
+      expect(res.status).toBe(302);
+      expect(new URL(res.headers.get('location')).host).toBe('old.example');
+    });
+
+    it('refuses an authorize request without an S256 code_challenge, on the page and on approval', async () => {
+      const client_id = await register();
+      const base = `/oauth/authorize?response_type=code&client_id=${client_id}&redirect_uri=${encodeURIComponent(REDIRECT)}`;
+      expect((await request(base)).status).toBe(400);
+      expect((await request(`${base}&code_challenge=${CHALLENGE}`)).status).toBe(400);
+      expect((await request(`${base}&code_challenge=${CHALLENGE}&code_challenge_method=plain`)).status).toBe(400);
+
+      expect((await approve(client_id, { code_challenge: '' })).status).toBe(400);
+      expect((await approve(client_id, { code_challenge_method: 'plain' })).status).toBe(400);
+      expect(env.DB._db.prepare('SELECT COUNT(*) AS n FROM oauth_codes').get().n).toBe(0);
+    });
+
+    it('trades no code that was stored without a challenge', async () => {
+      const client_id = await register();
+      env.DB._db
+        .prepare(
+          'INSERT INTO oauth_codes (code, client_id, redirect_uri, code_challenge, code_challenge_method, created_at, expires_at) VALUES (?, ?, ?, NULL, NULL, ?, ?)',
+        )
+        .run('bare-code', client_id, REDIRECT, Date.now(), Date.now() + 60_000);
+      const res = await exchange({ code: 'bare-code', client_id });
+      expect(res.status).toBe(400);
+      expect((await res.json()).error).toBe('invalid_grant');
+      expect(env.DB._db.prepare('SELECT COUNT(*) AS n FROM oauth_tokens').get().n).toBe(0);
+    });
+
+    it('shows the host the code will be sent to, escaped', async () => {
+      const client_id = await register(['http://127.0.0.1:8976/callback']);
+      const page = await request(
+        `/oauth/authorize?response_type=code&client_id=${client_id}&redirect_uri=${encodeURIComponent('http://127.0.0.1:8976/callback')}` +
+          `&code_challenge=${CHALLENGE}&code_challenge_method=S256`,
+      );
+      expect(await page.text()).toContain('<strong class="host">127.0.0.1:8976</strong>');
+
+      const claude = await register();
+      const html = await (
+        await request(
+          `/oauth/authorize?response_type=code&client_id=${claude}&redirect_uri=${encodeURIComponent(REDIRECT)}` +
+            `&code_challenge=${CHALLENGE}&code_challenge_method=S256`,
+        )
+      ).text();
+      expect(html).toContain('<strong class="host">claude.ai</strong>');
+    });
+
+    it('accepts the right key and refuses one that differs only at the end or in length', async () => {
+      const client_id = await register();
+      expect((await approve(client_id)).status).toBe(302);
+      for (const api_key of ['test-api-kez', 'test-api-key ', 'test-api-ke', '']) {
+        expect((await approve(client_id, { api_key })).status, JSON.stringify(api_key)).toBe(401);
+      }
+    });
+
+    it('answers a 401 on /mcp with WWW-Authenticate pointing at the protected-resource document', async () => {
+      const res = await request('/mcp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list' }),
+      });
+      expect(res.status).toBe(401);
+      expect(res.headers.get('www-authenticate')).toBe(
+        'Bearer resource_metadata="http://localhost/.well-known/oauth-protected-resource"',
+      );
+
+      const doc = await request('/.well-known/oauth-protected-resource');
+      expect(doc.status).toBe(200);
+      const meta = await doc.json();
+      expect(meta.resource).toBe('http://localhost/mcp');
+      const as = await (await request('/.well-known/oauth-authorization-server')).json();
+      expect(meta.authorization_servers).toEqual([as.issuer]);
+
+      const api = await request('/api/ideas');
+      expect(api.status).toBe(401);
+      expect(api.headers.get('www-authenticate')).toBeNull();
+    });
+  });
+
   describe('as an attacker', () => {
     it('refuses /mcp and /api without a token, and with a made-up one', async () => {
       const body = JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list' });
@@ -179,6 +303,7 @@ describe.skipIf(!sqliteAvailable)('OAuth server', () => {
       const client_id = await register();
       const res = await request(
         `/oauth/authorize?response_type=code&client_id=${client_id}&redirect_uri=${encodeURIComponent(REDIRECT)}` +
+          `&code_challenge=${CHALLENGE}&code_challenge_method=S256` +
           `&state=${encodeURIComponent('"><script>alert(1)</script>')}`,
       );
       expect(res.status).toBe(200);

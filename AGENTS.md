@@ -18,7 +18,7 @@ Deploys entirely to Cloudflare (Worker + Pages + D1 + R2). Single-user. Push to 
 | CLI | Node.js `sfl` command — browse and search ideas from the terminal |
 | MCP | Streamable HTTP at `/mcp`; OAuth 2.0 server at `/oauth` for Claude.ai |
 | AI | Workers AI (`@cf/meta/llama-3.1-8b-instruct-fp8`, set in `api/src/lib/ai.js`) — enrichment + chat replies |
-| Chat | Persistent message thread via D1; AI replies, or forwarding to `CHAT_WEBHOOK_URL` when that is set |
+| Chat | Persistent message thread via D1; Workers AI answers (last used 2026-05-25) |
 
 **The API and data model are the center of the service.** All other layers feed data in and out of the API.
 
@@ -28,12 +28,13 @@ Meta ideas are retired; per-repo backlogs live in sleeper-tasks. The meta endpoi
 
 ## Where SFL sits
 
-SFL is where the things Petter saves end up, whatever he used to save them. It stores; reading happens in Reader, working in the workbook, refining in Taste.
+SFL is where the things Petter saves end up, whatever he used to save them. It stores; reading happens in Reader, working in the workbook. Reader also mirrors each highlight into Taste; nothing moves an idea from SFL to Taste.
 
 | In | How |
 |---|---|
-| iOS share sheet (SleeperShare in `~/chat/frontend`, and this repo's `ios/` app), Chrome extension, macOS menu bar app | `POST /api/ideas` |
+| This repo's `ios/` app, Chrome extension, macOS menu bar app | `POST /api/ideas` directly |
 | inbox.phareim.no (`~/chat/inbox`) | an `idea` becomes a note, a `link` a page |
+| SleeperShare, the iOS share sheet in `~/chat/frontend` | posts to inbox.phareim.no, which posts the idea or link here |
 | Reader (`~/github/reader/server/utils/sfl.ts`) | a highlight becomes a quote, an elevated article a page |
 | The workbook at thoughts.phareim.no (`~/github/arbeidsbok`) | «Spar i SFL» on a note, a text or an article card |
 
@@ -42,7 +43,8 @@ SFL is where the things Petter saves end up, whatever he used to save them. It s
 | Articles pipeline (`~/chat/articles`) | polls `GET /api/ideas?type=page`, extracts the text and feeds Reader's Found |
 | The workbook | lists and searches ideas and places them on the board as cards |
 | claude.ai | MCP at `/mcp` behind the OAuth server |
-| Terminal | `sfl ideas`, `sfl ideas search` |
+| Terminal | `sfl ideas`, `sfl ideas search`; `sfl add` saves |
+| The stats collector | reads D1 counts through Cloudflare's API |
 
 Those clients read `id`, `type`, `title`, `url`, `summary`, `created_at` and post `{ type, title, url, summary, data }`. Several of them (the phone apps, the extension) cannot be redeployed from here, so `POST /api/ideas` keeps accepting what they send, `type: meta` included.
 

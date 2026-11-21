@@ -10,7 +10,7 @@ import metaRouter from './routes/meta.js';
 import mediaRouter, { mediaStandalone } from './routes/media.js';
 import messagesRouter from './routes/messages.js';
 import notesRouter, { notesStandalone } from './routes/notes.js';
-import oauthRouter, { oauthMetadata } from './routes/oauth.js';
+import oauthRouter, { oauthMetadata, protectedResourceMetadata } from './routes/oauth.js';
 import tagsRouter from './routes/tags.js';
 
 const app = new Hono();
@@ -62,11 +62,12 @@ app.route('/api/github', githubRouter);
 app.route('/api/messages', messagesRouter);
 
 // MCP Streamable HTTP endpoint
-app.use('/mcp', bearerAuth());
+app.use('/mcp', bearerAuth({ resourceMetadata: true }));
 app.post('/mcp', handleMcpRequest);
 
 // OAuth 2.0 (no auth required — public endpoints)
 app.get('/.well-known/oauth-authorization-server', oauthMetadata);
+app.get('/.well-known/oauth-protected-resource', protectedResourceMetadata);
 app.route('/oauth', oauthRouter);
 
 // Health check (no auth)

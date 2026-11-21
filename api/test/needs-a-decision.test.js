@@ -30,7 +30,7 @@ describe.skipIf(!sqliteAvailable)('needs a decision', () => {
     vi.unstubAllGlobals();
   });
 
-  it.fails('paging reaches every idea when several were saved in the same millisecond', async () => {
+  it('paging reaches every idea when several were saved in the same millisecond', async () => {
     const insert = env.DB._db.prepare(
       "INSERT INTO ideas (id, type, title, created_at, updated_at) VALUES (?, 'page', ?, ?, ?)",
     );

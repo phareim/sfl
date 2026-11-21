@@ -19,6 +19,40 @@ export async function oauthMetadata(c) {
   });
 }
 
+// /.well-known/oauth-protected-resource — the MCP endpoint and the server that issues its tokens (RFC 9728)
+export async function protectedResourceMetadata(c) {
+  return c.json({
+    resource: `${new URL(c.req.url).origin}/mcp`,
+    authorization_servers: [BASE_URL],
+    bearer_methods_supported: ['header'],
+  });
+}
+
+// The only client is Claude: its web and app callbacks, and a loopback callback for Claude Code.
+const CLAUDE_CALLBACKS = ['https://claude.ai/api/mcp/auth_callback', 'https://claude.com/api/mcp/auth_callback'];
+
+function isAllowedRedirect(uri) {
+  if (CLAUDE_CALLBACKS.includes(uri)) return true;
+  let url;
+  try {
+    url = new URL(uri);
+  } catch {
+    return false;
+  }
+  return (
+    url.protocol === 'http:' &&
+    (url.hostname === 'localhost' || url.hostname === '127.0.0.1') &&
+    url.port !== '' &&
+    url.username === '' &&
+    url.password === ''
+  );
+}
+
+// PKCE is required: a code is only issued against an S256 challenge.
+function hasPkce(code_challenge, code_challenge_method) {
+  return typeof code_challenge === 'string' && code_challenge.length > 0 && code_challenge_method === 'S256';
+}
+
 // POST /oauth/register — dynamic client registration (RFC 7591)
 oauth.post('/register', async (c) => {
   let body;
@@ -31,6 +65,12 @@ oauth.post('/register', async (c) => {
   const { redirect_uris } = body ?? {};
   if (!Array.isArray(redirect_uris) || redirect_uris.length === 0) {
     return c.json({ error: 'invalid_request', error_description: 'redirect_uris required' }, 400);
+  }
+  if (!redirect_uris.every((uri) => typeof uri === 'string' && isAllowedRedirect(uri))) {
+    return c.json(
+      { error: 'invalid_redirect_uri', error_description: "redirect_uris must be Claude's callbacks or loopback" },
+      400,
+    );
   }
 
   const client_id = generateId();
@@ -60,6 +100,9 @@ oauth.get('/authorize', async (c) => {
   if (response_type !== 'code') {
     return c.json({ error: 'unsupported_response_type' }, 400);
   }
+  if (!hasPkce(code_challenge, code_challenge_method)) {
+    return c.json({ error: 'invalid_request', error_description: 'code_challenge with method S256 required' }, 400);
+  }
 
   const client = await c.env.DB.prepare('SELECT * FROM oauth_clients WHERE client_id = ?')
     .bind(client_id ?? null)
@@ -81,7 +124,7 @@ oauth.post('/authorize', async (c) => {
   const { client_id, redirect_uri, state, code_challenge, code_challenge_method, api_key } = form;
 
   // An unset API_KEY approves nothing: without this, a form with no api_key field equals it.
-  if (!c.env.API_KEY || api_key !== c.env.API_KEY) {
+  if (!c.env.API_KEY || !(await sameSecret(api_key, c.env.API_KEY))) {
     return c.html(
       authorizePage({
         client_id,
@@ -104,6 +147,9 @@ oauth.post('/authorize', async (c) => {
   // The form's hidden fields are the caller's to change: check the redirect again before a code goes there.
   if (!JSON.parse(client.redirect_uris).includes(redirect_uri)) {
     return c.json({ error: 'invalid_request', error_description: 'redirect_uri mismatch' }, 400);
+  }
+  if (!hasPkce(code_challenge, code_challenge_method)) {
+    return c.json({ error: 'invalid_request', error_description: 'code_challenge with method S256 required' }, 400);
   }
 
   const code = generateId();
@@ -149,15 +195,12 @@ oauth.post('/token', async (c) => {
   if (authCode.redirect_uri !== redirect_uri) return c.json({ error: 'invalid_grant' }, 400);
   if (authCode.expires_at < now) return c.json({ error: 'invalid_grant', error_description: 'Code expired' }, 400);
 
-  // Verify PKCE (S256)
-  if (authCode.code_challenge) {
-    if (!code_verifier) {
-      return c.json({ error: 'invalid_grant', error_description: 'code_verifier required' }, 400);
-    }
-    const valid = await verifyPKCE(code_verifier, authCode.code_challenge);
-    if (!valid) {
-      return c.json({ error: 'invalid_grant', error_description: 'PKCE verification failed' }, 400);
-    }
+  // Verify PKCE (S256), always: a code stored without a challenge is not traded.
+  if (!authCode.code_challenge || !code_verifier) {
+    return c.json({ error: 'invalid_grant', error_description: 'code_verifier required' }, 400);
+  }
+  if (!(await verifyPKCE(String(code_verifier), authCode.code_challenge))) {
+    return c.json({ error: 'invalid_grant', error_description: 'PKCE verification failed' }, 400);
   }
 
   // Single-use: the delete is the claim. Of two requests holding the same code, only the one whose delete
@@ -181,6 +224,24 @@ async function verifyPKCE(codeVerifier, codeChallenge) {
     .replace(/\//g, '_')
     .replace(/=/g, '');
   return computed === codeChallenge;
+}
+
+// Compare the typed key with API_KEY in constant time: hash both, then compare the digests byte by byte.
+async function sameSecret(given, expected) {
+  const digest = async (s) =>
+    new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(String(s ?? ''))));
+  const [a, b] = await Promise.all([digest(given), digest(expected)]);
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a[i] ^ b[i];
+  return diff === 0;
+}
+
+function redirectHost(redirect_uri) {
+  try {
+    return new URL(redirect_uri).host;
+  } catch {
+    return '';
+  }
 }
 
 function esc(str) {
@@ -217,6 +278,7 @@ function authorizePage({ client_id, redirect_uri, state, code_challenge, code_ch
     <div class="logo">SFL</div>
     <h1>Authorize access</h1>
     <p class="sub">Claude wants to read and write your ideas. Enter your API key to approve.</p>
+    <p class="sub">The approval goes to <strong class="host">${esc(redirectHost(redirect_uri))}</strong>.</p>
     ${error ? `<div class="error">${esc(error)}</div>` : ''}
     <form method="POST" action="/oauth/authorize">
       <input type="hidden" name="client_id" value="${esc(client_id)}">

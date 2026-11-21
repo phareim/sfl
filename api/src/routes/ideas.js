@@ -251,7 +251,7 @@ async function fetchAndStoreArticle(env, idea) {
  * then run enrichment, so the auto-summary and tagging see the whole article
  * rather than just the meta description.
  */
-async function fetchThenEnrich(env, ideaId) {
+export async function fetchThenEnrich(env, ideaId) {
   try {
     const idea = await getIdea(env.DB, ideaId);
     if (idea?.type === 'page' && idea.url) {

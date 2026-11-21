@@ -60,6 +60,8 @@ export function projectBody(kind, blob, notesRow) {
  * The page size a caller asked for, at most 100. Anything that is no positive whole number is the default: SQLite
  * reads a negative LIMIT as no limit at all and refuses a fraction.
  */
+const MAX_RUN = 1000; // ideas sharing one created_at that a page takes in whole
+
 function pageSize(limit) {
   const n = Number(limit);
   return Number.isInteger(n) && n > 0 ? Math.min(n, 100) : 20;
@@ -115,57 +117,61 @@ export async function getIdeaByUrl(db, url, type) {
 export async function listIdeas(db, { type, tag, url, limit = 20, cursor } = {}) {
   limit = pageSize(limit);
 
-  let sql;
-  let params;
-
-  if (tag) {
-    // Filter by tag via connections table
-    const cursorClause = cursor ? 'AND i.created_at < ?' : '';
-    const typeClause = type ? 'AND i.type = ?' : '';
-    const urlClause = url ? 'AND i.url = ?' : '';
-    sql = `
+  // One query shape for both the page and, below, the rest of a run of equal timestamps.
+  function select(createdOp, createdValue, rowLimit) {
+    const p = tag ? 'i.' : '';
+    const clauses = [];
+    const params = [];
+    if (tag) params.push(tag, tag);
+    if (type) {
+      clauses.push(`AND ${p}type = ?`);
+      params.push(type);
+    }
+    if (url) {
+      clauses.push(`AND ${p}url = ?`);
+      params.push(url);
+    }
+    if (createdOp) {
+      clauses.push(`AND ${p}created_at ${createdOp} ?`);
+      params.push(createdValue);
+    }
+    params.push(rowLimit);
+    const sql = tag
+      ? `
       SELECT i.* FROM ideas i
       JOIN connections c ON c.from_id = i.id AND c.label = 'tagged_with'
       JOIN ideas t ON t.id = c.to_id AND t.type = 'tag'
       WHERE (t.id = ? OR t.title = ?)
-      ${typeClause}
-      ${urlClause}
-      ${cursorClause}
+      ${clauses.join('\n      ')}
       ORDER BY i.created_at DESC
       LIMIT ?
-    `;
-    params = [tag, tag];
-    if (type) params.push(type);
-    if (url) params.push(url);
-    if (cursor) params.push(Number(cursor));
-    params.push(limit + 1);
-  } else {
-    const cursorClause = cursor ? 'AND created_at < ?' : '';
-    const typeClause = type ? 'AND type = ?' : '';
-    const urlClause = url ? 'AND url = ?' : '';
-    sql = `
+    `
+      : `
       SELECT * FROM ideas
       WHERE 1=1
-      ${typeClause}
-      ${urlClause}
-      ${cursorClause}
+      ${clauses.join('\n      ')}
       ORDER BY created_at DESC
       LIMIT ?
     `;
-    params = [];
-    if (type) params.push(type);
-    if (url) params.push(url);
-    if (cursor) params.push(Number(cursor));
-    params.push(limit + 1);
+    return db
+      .prepare(sql)
+      .bind(...params)
+      .all()
+      .then((r) => r.results);
   }
 
-  const stmt = db.prepare(sql);
-  const { results } = await stmt.bind(...params).all();
+  let results = await select(cursor ? '<' : null, Number(cursor), limit + 1);
 
   let nextCursor = null;
   if (results.length > limit) {
-    results.pop();
+    const extra = results.pop();
     nextCursor = results[results.length - 1].created_at;
+    // The cursor is a timestamp and the next page starts below it, so a page that ends inside a run of ideas saved
+    // in the same millisecond would skip the rest of the run. Such a page runs to the end of the run instead.
+    if (extra.created_at === nextCursor) {
+      const run = (await select('=', nextCursor, MAX_RUN)).filter((r) => r.created_at === nextCursor);
+      results = [...results.filter((r) => r.created_at !== nextCursor), ...run];
+    }
   }
 
   return { ideas: results, nextCursor };

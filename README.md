@@ -239,6 +239,7 @@ sfl meta all                    # list all meta ideas across all projects
 sfl meta add "Task title"       # create a new meta idea (--priority A|B|C|D, --summary TEXT)
 sfl meta update <id>            # update a meta idea (--title, --priority, --status, --summary)
 
+sfl add <url|text>              # save a url as a page or text as a note; prints the id (--type page|note|quote, --title T, --tag NAME, repeatable)
 sfl ideas                       # list ideas (--type TYPE, --tag TAG, --limit N, --cursor TS)
 sfl ideas search <query>        # full-text search (--type TYPE, --limit N)
 
@@ -300,6 +301,19 @@ cd api && npx wrangler d1 execute sfl-db --remote --file=src/db/schema.sql
 npx wrangler secret put API_KEY
 # → any strong random string, e.g. openssl rand -hex 32
 ```
+
+### Rotating API_KEY
+
+The key is held in all of these; change each when it changes:
+
+- the Worker secret `API_KEY` (`npx wrangler secret put API_KEY`)
+- `SFL_API_KEY` in `~/chat/inbox/.env` and `~/chat/articles/.env`
+- `~/.config/sfl/config.json` (the CLI)
+- Reader's Worker secret `NUXT_SFL_API_KEY`
+- the workbook's Worker secret `ARBEIDSBOK_SFL_KEY`
+- the settings of each phone app and the Chrome extension
+
+OAuth tokens issued to Claude are not the key and keep working.
 
 ### 4. Deploy the Worker
 
@@ -372,9 +386,10 @@ GET    /health                        health check (no auth required)
 POST   /mcp                           MCP Streamable HTTP (Bearer auth)
 
 GET    /.well-known/oauth-authorization-server   OAuth discovery (no auth)
-POST   /oauth/register                dynamic client registration
-GET    /oauth/authorize               authorization page (enter API key to approve)
-POST   /oauth/token                   exchange code for token (PKCE S256)
+GET    /.well-known/oauth-protected-resource     MCP resource metadata (no auth); a 401 from /mcp points here
+POST   /oauth/register                dynamic client registration; Claude's callbacks and loopback http only
+GET    /oauth/authorize               authorization page (enter API key to approve); S256 code_challenge required
+POST   /oauth/token                   exchange code for token (PKCE S256 verifier required)
 ```
 
 ### Create idea — example body

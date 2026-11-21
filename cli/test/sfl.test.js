@@ -46,6 +46,17 @@ beforeAll(async () => {
       if (req.method === 'GET' && url.pathname === '/api/tags') return answer(200, { tags: TAGS });
       if (req.method === 'GET' && url.pathname === '/api/ideas') return answer(200, { ideas: IDEAS, nextCursor: null });
       if (req.method === 'GET' && url.pathname === '/api/ideas/search') return answer(200, { ideas: IDEAS });
+      if (req.method === 'POST' && url.pathname === '/api/ideas') {
+        const sent = JSON.parse(body);
+        if (sent.url === 'https://example.com/owls') return answer(200, { idea: { ...IDEAS[0] }, existing: true });
+        return answer(201, { idea: { id: `new${requests.length}`, ...sent }, data: sent.data ?? {} });
+      }
+      if (req.method === 'POST' && url.pathname === '/api/connections') {
+        const sent = JSON.parse(body);
+        const already = requests.filter((r) => r.path === '/api/connections' && r.body === body).length > 1;
+        if (already) return answer(400, { error: 'Connection already exists' });
+        return answer(201, { connection: { id: 'c1', ...sent } });
+      }
       const rename = url.pathname.match(/^\/api\/tags\/([^/]+)$/);
       if (req.method === 'PUT' && rename) return answer(200, { id: rename[1], title: JSON.parse(body).title });
       return answer(404, { error: 'Not found' });
@@ -110,5 +121,57 @@ describe('sfl', () => {
   it('tags rename: takes a title, whatever its case', async () => {
     await sfl('tags', 'rename', 'READING', 'books');
     expect(requests.find((r) => r.method === 'PUT').path).toBe('/api/tags/V1StGXR8_Z5jdHi6B-myT');
+  });
+});
+
+describe('sfl add', () => {
+  const posts = (path) => requests.filter((r) => r.method === 'POST' && r.path === path).map((r) => JSON.parse(r.body));
+
+  it('saves a url as a page and prints the new id', async () => {
+    const out = await sfl('add', 'https://example.com/new', '--title', 'A new page');
+    expect(posts('/api/ideas')).toEqual([{ type: 'page', url: 'https://example.com/new', title: 'A new page' }]);
+    expect(out.trim()).toMatch(/^new\d+$/);
+  });
+
+  it('saves text as a note with the body inbox sends', async () => {
+    const text = 'a thought that is rather longer than eighty characters, so the title has to be cut short here ok';
+    await sfl('add', ...text.split(' '));
+    expect(posts('/api/ideas')).toEqual([
+      { type: 'note', title: text.slice(0, 80), summary: text, data: { text, source: 'cli' } },
+    ]);
+  });
+
+  it('saves a quote with --type quote, and tags it with existing and new tags', async () => {
+    await sfl('add', 'be yourself', '--type', 'quote', '--tag', 'READING', '--tag', 'wisdom');
+    const ideas = posts('/api/ideas');
+    expect(ideas[0]).toEqual({
+      type: 'quote',
+      title: 'be yourself',
+      summary: 'be yourself',
+      data: { text: 'be yourself', source: 'cli' },
+    });
+    expect(ideas[1]).toEqual({ type: 'tag', title: 'wisdom' });
+    const id = posts('/api/connections')[0].from_id;
+    expect(posts('/api/connections')).toEqual([
+      { from_id: id, to_id: TAGS[0].id, label: 'tagged_with' },
+      { from_id: id, to_id: expect.stringMatching(/^new\d+$/), label: 'tagged_with' },
+    ]);
+  });
+
+  it('treats a tag the idea already has as done', async () => {
+    const out = await sfl('add', 'twice', '--tag', 'reading', '--tag', 'reading');
+    expect(out.trim()).toMatch(/^new\d+$/);
+    expect(posts('/api/connections')).toHaveLength(2);
+  });
+
+  it('says so when the url was saved before', async () => {
+    const out = await sfl('add', 'https://example.com/owls');
+    expect(out.trim()).toBe('aaaaaaaaaaaaaaaaaaaa1 (already saved)');
+  });
+
+  it('refuses no input and a page that is no url', async () => {
+    await expect(sfl('add')).rejects.toThrow();
+    await expect(sfl('add', 'just words', '--type', 'page')).rejects.toThrow();
+    expect(posts('/api/ideas')).toEqual([]);
   });
 });

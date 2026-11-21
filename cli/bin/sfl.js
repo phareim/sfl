@@ -539,6 +539,51 @@ async function cmdIdeasSearch(config, args = []) {
   console.log();
 }
 
+// --- add command ---
+
+// Save from a shell: a URL becomes a page, anything else a note, with the bodies inbox.phareim.no sends.
+async function cmdAdd(config, args = []) {
+  const tags = [];
+  const flags = {};
+  const words = [];
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === '--tag') tags.push(args[++i]);
+    else if (args[i].startsWith('--')) flags[args[i].slice(2)] = args[++i];
+    else words.push(args[i]);
+  }
+  const input = words.join(' ').trim();
+  const isUrl = /^https?:\/\/\S+$/.test(input);
+  const type = flags.type ?? (isUrl ? 'page' : 'note');
+  if (!input || !['page', 'note', 'quote'].includes(type) || tags.some((t) => !t) || (type === 'page' && !isUrl)) {
+    console.error('Usage: sfl add <url|text> [--type page|note|quote] [--title TITLE] [--tag NAME ...]');
+    process.exit(1);
+  }
+
+  const body =
+    type === 'page'
+      ? { type, url: input, ...(flags.title ? { title: flags.title } : {}) }
+      : { type, title: flags.title ?? input.slice(0, 80), summary: input, data: { text: input, source: 'cli' } };
+  const res = await apiPost(config, '/api/ideas', body);
+  const id = res.idea.id;
+
+  for (const name of tags) {
+    let tag;
+    try {
+      tag = await resolveTag(config, name);
+    } catch (err) {
+      if (!/not found/.test(err.message)) throw err;
+      tag = (await apiPost(config, '/api/ideas', { type: 'tag', title: name })).idea;
+    }
+    try {
+      await apiPost(config, '/api/connections', { from_id: id, to_id: tag.id, label: 'tagged_with' });
+    } catch (err) {
+      if (!/API error 400/.test(err.message)) throw err; // already tagged
+    }
+  }
+
+  console.log(res.existing ? `${id} (already saved)` : id);
+}
+
 // --- Dispatch ---
 
 const cmd = process.argv[2];
@@ -598,6 +643,12 @@ if (cmd === 'meta' && sub === 'all') {
     console.error(`Error: ${err.message}`);
     process.exit(1);
   });
+} else if (cmd === 'add') {
+  const config = loadConfig();
+  cmdAdd(config, process.argv.slice(3)).catch((err) => {
+    console.error(`Error: ${err.message}`);
+    process.exit(1);
+  });
 } else if (cmd === 'ideas' && sub === 'search') {
   const config = loadConfig();
   cmdIdeasSearch(config, process.argv.slice(4)).catch((err) => {
@@ -623,6 +674,7 @@ if (cmd === 'meta' && sub === 'all') {
   console.log('  tags             List all tags with usage counts (alias: tags list)');
   console.log('  tags rename <ref> <title>  Rename a tag (id or title accepted)');
   console.log('  tags merge <src> <into>    Merge src tag into into tag');
+  console.log('  add <url|text>   Save a page or a note [--type page|note|quote] [--title T] [--tag NAME ...]');
   console.log('  ideas            List ideas [--type TYPE] [--tag TAG] [--limit N] [--status STATUS] [--cursor TS]');
   console.log('  ideas search <q> Full-text search [--type TYPE] [--limit N]');
 }

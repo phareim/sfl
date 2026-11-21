@@ -212,6 +212,33 @@ describe.skipIf(!sqliteAvailable)('seams', () => {
       expect(second.nextCursor).toBeNull();
     });
 
+    it('runs a page to the end of a run of equal timestamps, with and without a tag filter', async () => {
+      const tag = await save({ type: 'tag', title: 'reading' });
+      seed([
+        { id: 'a', at: 4000 },
+        { id: 'b', at: 3000 },
+        { id: 'c', at: 3000 },
+        { id: 'd', at: 3000 },
+        { id: 'e', at: 2000 },
+      ]);
+      const edge = env.DB._db.prepare(
+        "INSERT INTO connections (id, from_id, to_id, label, created_at) VALUES (?, ?, ?, 'tagged_with', 0)",
+      );
+      for (const id of ['a', 'b', 'c', 'd', 'e']) edge.run(`c-${id}`, id, tag.id);
+
+      for (const filter of ['type=page', 'tag=reading']) {
+        const first = await (await req(`/api/ideas?${filter}&limit=2`)).json();
+        expect(first.ideas.map((i) => i.id).sort(), filter).toEqual(['a', 'b', 'c', 'd']);
+        expect(first.nextCursor, filter).toBe(3000);
+        const second = await (await req(`/api/ideas?${filter}&limit=2&cursor=3000`)).json();
+        expect(
+          second.ideas.map((i) => i.id),
+          filter,
+        ).toEqual(['e']);
+        expect(second.nextCursor, filter).toBeNull();
+      }
+    });
+
     it('caps limit at 100 and reads a limit that is no positive whole number as the default 20', async () => {
       seed(Array.from({ length: 130 }, (_, i) => ({ id: `i${i}`, at: 1000 + i })));
 

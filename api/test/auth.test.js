@@ -9,6 +9,7 @@ const executionCtx = { waitUntil: () => {}, passThroughOnException: () => {} };
 
 const PUBLIC = [
   'GET /.well-known/oauth-authorization-server',
+  'GET /.well-known/oauth-protected-resource',
   'GET /health',
   'GET /oauth/authorize',
   'POST /oauth/authorize',
