@@ -87,7 +87,7 @@ const TOOLS = [
   {
     name: 'create_idea',
     description:
-      'Create a new idea of any type (note, page, quote, book, tweet, image, tag). A page with a url gets its article fetched. Tasks and backlogs live in sleeper-tasks, not here.',
+      'Create a new idea of any type (note, page, quote, book, tweet, image, tag). A page with a url gets its article fetched, unless data.text is given. Tasks and backlogs live in sleeper-tasks, not here.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -280,8 +280,10 @@ async function executeTool(name, args, env, ctx) {
         updated_at: now,
       });
 
-      // Same as REST POST /api/ideas: a page fetches its article first, so the summary sees the whole text.
-      ctx?.waitUntil(args.type === 'page' && url ? fetchThenEnrich(env, id) : enrichIdea(env, id));
+      // Same as REST POST /api/ideas: a page fetches its article first, so the summary sees the whole text. Not
+      // when the caller sent the text: the fetched article would take its place.
+      const fetchArticle = args.type === 'page' && url && !args.data?.text;
+      ctx?.waitUntil(fetchArticle ? fetchThenEnrich(env, id) : enrichIdea(env, id));
 
       const idea = await getIdea(env.DB, id);
       return { idea };

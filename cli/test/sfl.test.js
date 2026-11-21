@@ -12,6 +12,8 @@ const CLI = fileURLToPath(new URL('../bin/sfl.js', import.meta.url));
 const TAGS = [
   { id: 'V1StGXR8_Z5jdHi6B-myT', type: 'tag', title: 'reading', usage_count: 12 },
   { id: 'V1StGXR8_Z5jQ0000000x', type: 'tag', title: 'Reading list', usage_count: 3 },
+  { id: 'V1StGXR8_Z5jQ0000000y', type: 'tag', title: 'Owls', usage_count: 1 },
+  { id: 'V1StGXR8_Z5jQ0000000z', type: 'tag', title: 'OWLS', usage_count: 1 },
 ];
 const IDEAS = [
   { id: 'aaaaaaaaaaaaaaaaaaaa1', type: 'page', title: 'Owls of the north', url: 'https://example.com/owls' },
@@ -162,6 +164,12 @@ describe('sfl add', () => {
     const out = await sfl('add', 'twice', '--tag', 'reading', '--tag', 'reading');
     expect(out.trim()).toMatch(/^new\d+$/);
     expect(posts('/api/connections')).toHaveLength(2);
+  });
+
+  it('saves nothing when a tag name matches several tags, so the retry does not save the idea twice', async () => {
+    await expect(sfl('add', 'a thought', '--tag', 'reading', '--tag', 'owls')).rejects.toThrow(/ambiguous tag "owls"/);
+    expect(posts('/api/ideas')).toEqual([]);
+    expect(posts('/api/connections')).toEqual([]);
   });
 
   it('says so when the url was saved before', async () => {

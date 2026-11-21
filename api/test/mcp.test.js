@@ -223,6 +223,64 @@ describe.skipIf(!sqliteAvailable)('MCP round two', () => {
     expect(data).toEqual({ article: false });
   });
 
+  describe('with a page that has an article', () => {
+    const ARTICLE = [1, 2, 3].map(
+      (n) => `Paragraph ${n} of the article as the site serves it, ${'word '.repeat(40)}end.`,
+    );
+    let fetchSpy;
+
+    // HTMLRewriter is a Workers global: this one hands each paragraph of the stubbed response to the `p` handlers.
+    class Rewriter {
+      on(selector, handlers) {
+        if (selector === 'p') this.p = handlers;
+        return this;
+      }
+      transform(response) {
+        return {
+          arrayBuffer: async () => {
+            for (const text of response.paragraphs) {
+              let end;
+              this.p.element({ onEndTag: (fn) => (end = fn) });
+              this.p.text({ text });
+              end();
+            }
+          },
+        };
+      }
+    }
+
+    beforeEach(() => {
+      fetchSpy = vi.fn(async () => ({ ok: true, headers: { get: () => 'text/html' }, paragraphs: ARTICLE }));
+      vi.stubGlobal('fetch', fetchSpy);
+      vi.stubGlobal('HTMLRewriter', Rewriter);
+      env.AI = { run: async () => ({ response: '' }) };
+    });
+
+    it('create_idea stores the fetched article when the caller sent no text', async () => {
+      const { idea } = await callTool('create_idea', {
+        type: 'page',
+        title: 'An article',
+        url: 'https://example.com/a',
+      });
+      await Promise.all(waitUntilCalls);
+      const { data } = await callTool('get_idea', { id: idea.id });
+      expect(data).toEqual({ text: ARTICLE.join('\n\n') });
+    });
+
+    it('create_idea keeps the text the caller sent for a page, as it did before the article fetch', async () => {
+      const { idea } = await callTool('create_idea', {
+        type: 'page',
+        title: 'An article',
+        url: 'https://example.com/b',
+        data: { text: 'What Claude wrote down about the article.' },
+      });
+      await Promise.all(waitUntilCalls);
+      const { data } = await callTool('get_idea', { id: idea.id });
+      expect(data).toEqual({ text: 'What Claude wrote down about the article.' });
+      expect(fetchSpy).not.toHaveBeenCalled();
+    });
+  });
+
   it('create_idea for a note fetches nothing', async () => {
     const fetchSpy = vi.fn();
     vi.stubGlobal('fetch', fetchSpy);

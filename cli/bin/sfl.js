@@ -563,6 +563,14 @@ async function cmdAdd(config, args = []) {
     type === 'page'
       ? { type, url: input, ...(flags.title ? { title: flags.title } : {}) }
       : { type, title: flags.title ?? input.slice(0, 80), summary: input, data: { text: input, source: 'cli' } };
+  // Before anything is saved: a tag name that matches several tags fails here. After the save the error would hide
+  // the id of an idea that exists, and the retry would save it a second time.
+  for (const name of tags) {
+    await resolveTag(config, name).catch((err) => {
+      if (!/not found/.test(err.message)) throw err;
+    });
+  }
+
   const res = await apiPost(config, '/api/ideas', body);
   const id = res.idea.id;
 

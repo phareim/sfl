@@ -70,8 +70,9 @@ async function applySummary(env, idea, data) {
     const summary = response?.response?.trim();
     if (!summary || summary.length < 10) return;
 
-    await env.DB.prepare('UPDATE ideas SET summary = ?, updated_at = ? WHERE id = ?')
-      .bind(summary.slice(0, 500), Date.now(), idea.id)
+    // The model took its time: write only if the summary still is what was read, so one typed meanwhile stays.
+    await env.DB.prepare('UPDATE ideas SET summary = ?, updated_at = ? WHERE id = ? AND summary IS ?')
+      .bind(summary.slice(0, 500), Date.now(), idea.id, idea.summary ?? null)
       .run();
   } catch {
     // Best-effort

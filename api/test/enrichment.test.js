@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import app from '../src/app.js';
 import { createMockEnv } from './helpers.js';
+import { createSqliteD1, sqliteAvailable } from './sqlite-d1.js';
 
 let env;
 const executionCtx = { waitUntil: () => {}, passThroughOnException: () => {} };
@@ -92,7 +93,10 @@ describe('summary enrichment', () => {
       type: 'page',
       title: 'Owls',
       url: 'https://owls.example.com',
-      data: { description: 'a long and thorough article about the burrowing owl, its habitat and diet, easily over eighty characters' },
+      data: {
+        description:
+          'a long and thorough article about the burrowing owl, its habitat and diet, easily over eighty characters',
+      },
     });
 
     env.AI = { run: async () => ({ response: 'An article about burrowing owls.' }) };
@@ -110,7 +114,10 @@ describe('summary enrichment', () => {
       title: 'Owls',
       summary: 'Owls',
       url: 'https://owls2.example.com',
-      data: { description: 'a long and thorough article about the burrowing owl, its habitat and diet, easily over eighty characters' },
+      data: {
+        description:
+          'a long and thorough article about the burrowing owl, its habitat and diet, easily over eighty characters',
+      },
     });
 
     env.AI = { run: async () => ({ response: 'An article about burrowing owls.' }) };
@@ -126,7 +133,10 @@ describe('summary enrichment', () => {
       title: 'Owls',
       summary: 'My own carefully written take on this owl article.',
       url: 'https://owls3.example.com',
-      data: { description: 'a long and thorough article about the burrowing owl, its habitat and diet, easily over eighty characters' },
+      data: {
+        description:
+          'a long and thorough article about the burrowing owl, its habitat and diet, easily over eighty characters',
+      },
     });
 
     env.AI = { run: async () => ({ response: 'AI generated summary that should not win.' }) };
@@ -194,6 +204,59 @@ describe('writes that follow a slow call', () => {
     const { data } = await (await req(`/api/ideas/${idea.id}`)).json();
     expect(data).toEqual({ text: 'The edited text.' });
   });
+
+  it('markdown formatting keeps what was added to the blob while the model was working', async () => {
+    const idea = await createSettled({ type: 'note', title: 'Draft', data: { text: LONG } });
+    env.AI = {
+      run: async () => {
+        await req(`/api/ideas/${idea.id}`, {
+          method: 'PUT',
+          body: { data: { text: LONG, source: 'added meanwhile' } },
+        });
+        return { response: `# Draft\n\n${LONG}` };
+      },
+    };
+
+    await req(`/api/ideas/${idea.id}/enrich?mode=markdown`, { method: 'POST' });
+
+    const { data } = await (await req(`/api/ideas/${idea.id}`)).json();
+    expect(data).toEqual({ text: `# Draft\n\n${LONG}`, source: 'added meanwhile', markdown: true });
+  });
+
+  // On the real schema: the mock answers an UPDATE by its first words and cannot show a condition.
+  it.skipIf(!sqliteAvailable)(
+    'the summary step does not write over a summary typed while the model was working',
+    async () => {
+      env = createMockEnv({ DB: createSqliteD1() });
+      env.AI = { run: async () => ({ response: '' }) };
+      const idea = await createSettled({
+        type: 'page',
+        title: 'Owls',
+        url: 'https://owls.example.com/slow',
+        data: {
+          description:
+            'a long and thorough article about the burrowing owl, its habitat and diet, easily over eighty characters',
+        },
+      });
+      env.AI = {
+        run: async () => {
+          await req(`/api/ideas/${idea.id}`, { method: 'PUT', body: { summary: 'My own words about the owls.' } });
+          return { response: 'An article about burrowing owls.' };
+        },
+      };
+
+      await req(`/api/ideas/${idea.id}/enrich?mode=summary`, { method: 'POST' });
+
+      const read = await (await req(`/api/ideas/${idea.id}`)).json();
+      expect(read.idea.summary).toBe('My own words about the owls.');
+
+      // And with no edit meanwhile, the summary is written as before.
+      env.AI = { run: async () => ({ response: 'An article about burrowing owls.' }) };
+      await req(`/api/ideas/${idea.id}`, { method: 'PUT', body: { summary: null } });
+      await req(`/api/ideas/${idea.id}/enrich?mode=summary`, { method: 'POST' });
+      expect((await (await req(`/api/ideas/${idea.id}`)).json()).idea.summary).toBe('An article about burrowing owls.');
+    },
+  );
 
   it('fetch-content does not write back over an edit made while the page was being fetched', async () => {
     const idea = await createSettled({ type: 'page', title: 'An article', url: 'https://slow.example.com/a' });

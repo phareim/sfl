@@ -161,7 +161,7 @@ The Worker also runs an OAuth 2.0 server so Claude.ai can connect without exposi
 | `search_ideas` | Full-text search |
 | `list_ideas` | List with optional type/tag filter |
 | `get_idea` | Full idea details with notes and connections |
-| `create_idea` | Create any idea type |
+| `create_idea` | Create any idea type; a page with a url gets its article fetched unless `data.text` is given |
 | `tag_idea` | Tag an idea |
 | `create_connection` | Connect two ideas |
 | `add_note` | Add a note to an existing idea |
@@ -344,7 +344,7 @@ After that, every push to `master` deploys both the Worker and Pages automatical
 
 ## API
 
-Routes under `/api` and `/mcp` require `Authorization: Bearer <token>`, where the token is the `API_KEY` or one issued by the OAuth server. `/health`, `/.well-known/oauth-authorization-server` and `/oauth/*` are public.
+Routes under `/api` and `/mcp` require `Authorization: Bearer <token>`, where the token is the `API_KEY` or one issued by the OAuth server. `/health`, `/.well-known/oauth-authorization-server`, `/.well-known/oauth-protected-resource` and `/oauth/*` are public.
 
 ```
 GET    /api/ideas                     list (paginated, ?type=, ?tag=, ?project=, ?limit=, ?cursor=)
