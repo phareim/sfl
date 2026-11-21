@@ -288,11 +288,11 @@ async function cmdTagsList(config) {
   }
   const sorted = [...tags].sort((a, b) => (b.usage_count ?? 0) - (a.usage_count ?? 0));
   console.log(`\nTags (${tags.length} total)\n`);
-  const idW = 12;
+  const idW = 22; // the whole id: rename and merge take an id, not a prefix
   const countW = 6;
   console.log(`  ${'ID'.padEnd(idW)} ${'COUNT'.padEnd(countW)} TITLE`);
   for (const t of sorted) {
-    const id = String(t.id).slice(0, idW).padEnd(idW);
+    const id = String(t.id).padEnd(idW);
     const count = String(t.usage_count ?? 0).padEnd(countW);
     console.log(`  ${id} ${count} ${t.title}`);
   }
@@ -517,7 +517,9 @@ async function cmdIdeasSearch(config, args = []) {
   let path = `/api/ideas/search?q=${encodeURIComponent(query)}&limit=${limit}`;
   if (type) path += `&type=${encodeURIComponent(type)}`;
 
-  const { ideas } = await api(config, path);
+  const { ideas: found } = await api(config, path);
+  // The search endpoint does not filter by type, so --type is applied to what it answers.
+  const ideas = type ? found.filter((idea) => idea.type === type) : found;
   if (!ideas.length) {
     console.log(`No results for "${query}".`);
     return;

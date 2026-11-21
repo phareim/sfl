@@ -55,7 +55,7 @@ ideas.post('/', async (c) => {
     return badRequest('Invalid JSON');
   }
 
-  const { type, title, url, summary, data } = body;
+  const { type, title, url, summary, data } = body ?? {};
   if (!type) return badRequest('type is required');
 
   // Return existing idea if URL already captured as the same type
@@ -151,7 +151,7 @@ ideas.put('/:id', async (c) => {
     return badRequest('Invalid JSON');
   }
 
-  const { title, url, summary, data } = body;
+  const { title, url, summary, data } = body ?? {};
   const now = Date.now();
 
   // Update R2 blob if data provided
@@ -233,8 +233,9 @@ ideas.post('/:id/fetch-content', async (c) => {
  * FTS body so the article becomes searchable. Returns the updated blob.
  */
 async function fetchAndStoreArticle(env, idea) {
-  const existing = (await getJson(env.R2, idea.r2_key)) ?? {};
   const text = await extractArticleText(idea.url);
+  // Read the blob after the fetch, not before: an edit made while the page was loading stays in what is written.
+  const existing = (await getJson(env.R2, idea.r2_key)) ?? {};
 
   const updated = text ? { ...existing, text } : { ...existing, article: false };
   await putJson(env.R2, idea.r2_key, updated);

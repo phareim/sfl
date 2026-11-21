@@ -16,15 +16,15 @@ Deploys entirely to **Cloudflare** (Worker + Pages + D1 + R2). Single-user, Java
 - **Social post detection** — X/Twitter, Threads, and Bluesky URLs are automatically saved as `type: tweet` with author, platform, and post text extracted from the DOM
 - **Image upload** — pick a local file or paste a URL; the Worker fetches and stores the binary in R2 so you own a copy
 - **Graph view** — WebGL force-directed graph (Sigma.js + ForceAtlas2); click a node to navigate
-- **Full-text search** — FTS5 on title + summary
+- **Full-text search** — FTS5 on title, summary and body; plain words, all required, a trailing `*` matches by prefix
 - **Tags** — tags are ideas; tagging is a graph edge. Add/remove/create tags inline on any idea's detail page
 - **Notes** — annotate any idea with freeform notes, editable in place
-- **Media gallery** — attach files to any idea; served directly from R2
+- **Media gallery** — attach files to any idea; stored in R2 and streamed through the Worker
 - **Chrome extension** — right-click context menus, popup quick-capture, options page
 - **Claude / MCP** — remote MCP server with OAuth so Claude (Code or web) can capture and query ideas directly
-- **AI enrichment** — on every new idea, Workers AI (`llama-3.1-8b-instruct`) auto-applies relevant tags, finds related ideas (surfaced as `related_to` connections), and reformats `data.text` into structured Markdown. Manual re-run available via buttons in the web and iOS detail views
+- **AI enrichment** — on every new idea: tags (TypeSafe Jev against a curated vocabulary when `TYPESAFE_API_KEY` is set, Workers AI otherwise), related ideas (surfaced as `related_to` connections), a summary when none was written, and `data.text` reformatted into structured Markdown, the last three by Workers AI (`llama-3.1-8b-instruct-fp8`). Manual re-run available via buttons in the web and iOS detail views
 - **Chat / Messages** — persistent chat thread backed by D1; AI replies via Workers AI or forwarded to an external webhook
-- **Deduplication** — capturing a URL that already exists returns the existing idea instead of creating a duplicate
+- **Deduplication** — capturing a URL that already exists as the same type returns the existing idea instead of creating a duplicate
 
 ---
 
@@ -39,9 +39,9 @@ Deploys entirely to **Cloudflare** (Worker + Pages + D1 + R2). Single-user, Java
 | Extension | Chrome MV3 | Context menus, popup, social detection |
 | iOS | SwiftUI + Share Extension | Native capture + chat from any app |
 | macOS | Swift menu bar app | Global hotkey capture (⌃⌥I), text grabber |
-| CLI | Node.js (`sfl`) | Browse/search ideas, manage meta tasks from the terminal |
+| CLI | Node.js (`sfl`) | Browse and search ideas, rename and merge tags from the terminal |
 | MCP | Streamable HTTP + OAuth 2.0 | Claude Code and Claude.ai connector |
-| AI | Workers AI (`llama-3.1-8b-instruct`) | Auto-tagging, related ideas, markdown formatting, chat replies |
+| AI | Workers AI (`llama-3.1-8b-instruct-fp8`), TypeSafe Jev | Auto-tagging (Jev first), related ideas, summaries, markdown formatting, chat replies |
 | Graph | Sigma.js + Graphology | WebGL rendering, ForceAtlas2 layout |
 | CI/CD | GitHub Actions | Deploy on push to master |
 
@@ -58,7 +58,7 @@ Deploys entirely to **Cloudflare** (Worker + Pages + D1 + R2). Single-user, Java
 | `quote` | `text`, `attribution`, `source_url` |
 | `image` | `source_url`, `caption` |
 | `book` | `title`, `author`, `isbn`, `cover_url` |
-| `note` | `text` |
+| `note` | `text` (the web app writes `content`) |
 | `text` | `text` |
 | `video` | `video_id`, `platform` |
 | `meta` | `project`, `priority`, `status`, `git_commit`, `implementation_details` |
@@ -165,7 +165,7 @@ The Worker also runs an OAuth 2.0 server so Claude.ai can connect without exposi
 | `tag_idea` | Tag an idea |
 | `create_connection` | Connect two ideas |
 | `add_note` | Add a note to an existing idea |
-| `update_idea` | Update title, summary, url, or data blob of an existing idea |
+| `update_idea` | Update title or summary of an existing idea, or merge keys into its data blob |
 
 ---
 
@@ -216,7 +216,7 @@ Opening any of these URLs and saving (popup or right-click) automatically sets `
 
 ## CLI
 
-The `sfl` CLI lets you browse and manage ideas from the terminal. It is the canonical tool for the `meta` workflow (project planning and task tracking).
+The `sfl` CLI lets you browse and search ideas and manage tags from the terminal. Meta ideas are retired: the `sfl meta` commands still run but hold no live projects.
 
 ### Install
 
@@ -239,8 +239,12 @@ sfl meta all                    # list all meta ideas across all projects
 sfl meta add "Task title"       # create a new meta idea (--priority A|B|C|D, --summary TEXT)
 sfl meta update <id>            # update a meta idea (--title, --priority, --status, --summary)
 
-sfl ideas                       # list ideas (--type TYPE, --tag TAG, --limit N, --status STATUS)
+sfl ideas                       # list ideas (--type TYPE, --tag TAG, --limit N, --cursor TS)
 sfl ideas search <query>        # full-text search (--type TYPE, --limit N)
+
+sfl tags                        # list tags with id and usage count
+sfl tags rename <id-or-title> <new-title>
+sfl tags merge <source-id-or-title> <into-id-or-title>
 ```
 
 `meta` ideas have a `status` lifecycle: `draft` → `in_progress` → `done`.
@@ -249,7 +253,7 @@ sfl ideas search <query>        # full-text search (--type TYPE, --limit N)
 
 ## Chat / Messages
 
-A simple persistent chat thread, accessible from the iOS app and the API. Each user message triggers either an AI reply (Workers AI) or a forwarded webhook call if `WEBHOOK_URL` is configured.
+A simple persistent chat thread, accessible from the iOS app and the API. Each user message triggers either an AI reply (Workers AI) or a forwarded webhook call if `CHAT_WEBHOOK_URL` is configured.
 
 ### API
 
@@ -261,14 +265,14 @@ POST /api/messages              post a Sleeper reply { body, sender: "sleeper" }
 
 ### Webhook mode
 
-Set the `WEBHOOK_URL` Cloudflare secret to forward every user message as a `POST` JSON payload to an external service (e.g. Claude Code, n8n, a home automation hook). The request includes `X-SFL-Secret` for verification.
+Set the `CHAT_WEBHOOK_URL` Cloudflare secret to forward every user message as a `POST` JSON payload (`{ id, body, sender, created_at }`) to an external service (e.g. Claude Code, n8n, a home automation hook). The request includes `X-SFL-Secret` for verification. A forward that fails is dropped without a trace: the message stays in the thread and gets no reply.
 
 ```bash
-npx wrangler secret put WEBHOOK_URL
+npx wrangler secret put CHAT_WEBHOOK_URL
 npx wrangler secret put WEBHOOK_SECRET   # optional, for request verification
 ```
 
-When `WEBHOOK_URL` is set, the Worker skips the built-in AI reply and delegates to the external service, which can post replies back via `POST /api/messages` with `{ sender: "sleeper" }`.
+When `CHAT_WEBHOOK_URL` is set, the Worker skips the built-in AI reply and delegates to the external service, which can post replies back via `POST /api/messages` with `{ sender: "sleeper" }`.
 
 ---
 
@@ -326,10 +330,11 @@ After that, every push to `master` deploys both the Worker and Pages automatical
 
 ## API
 
-All routes require `Authorization: Bearer <API_KEY>`.
+Routes under `/api` and `/mcp` require `Authorization: Bearer <token>`, where the token is the `API_KEY` or one issued by the OAuth server. `/health`, `/.well-known/oauth-authorization-server` and `/oauth/*` are public.
 
 ```
-GET    /api/ideas                     list (paginated, ?type=, ?tag=, ?limit=, ?cursor=)
+GET    /api/ideas                     list (paginated, ?type=, ?tag=, ?project=, ?limit=, ?cursor=)
+GET    /api/ideas?ids=a,b,c           those rows only (at most 100; a missing id is a deleted idea)
 POST   /api/ideas                     create idea
 GET    /api/ideas/search?q=term       FTS5 full-text search
 GET    /api/ideas/:id                 idea + connections + notes + media list
@@ -339,7 +344,9 @@ DELETE /api/ideas/:id                 delete (cascades connections/notes/media +
 POST   /api/connections               create edge { from_id, to_id, label }
 DELETE /api/connections/:id           delete edge
 
-POST   /api/ideas/:id/enrich          run AI enrichment; ?mode=tags|connections|markdown|all (default all)
+POST   /api/ideas/:id/enrich          run AI enrichment; ?mode=tags|connections|markdown|summary|all (default all)
+POST   /api/ideas/:id/suggest-tags    suggest tags for an idea { count? }
+POST   /api/ideas/suggest-tags        suggest tags for content not saved yet { title?, url?, summary?, text?, count? }
 POST   /api/ideas/:id/fetch-content   extract article text from URL (page type only)
 
 POST   /api/ideas/:id/notes           add note { body }
@@ -352,6 +359,11 @@ GET    /api/media/:id/url             stream media file from R2
 DELETE /api/media/:id                 delete from R2 + DB
 
 GET    /api/tags                      all tags with usage counts
+PUT    /api/tags/:id                  rename a tag { title }
+POST   /api/tags/:id/merge            merge a tag into another { into }
+GET    /api/meta/digest               done meta ideas by project; ?range=7d|14d|30d (meta ideas are retired)
+GET    /api/messages                  chat thread (?limit=, ?cursor=)
+POST   /api/messages                  send a chat message { body }
 GET    /api/github/repos?q=term       search GitHub repos (requires GITHUB_TOKEN secret)
 GET    /api/graph                     { nodes: [...ideas], edges: [...connections] }
 GET    /api/graph/:id/neighbors       idea + immediate neighbors (1-hop)
@@ -399,7 +411,7 @@ pnpm dev
 
 API runs on `http://localhost:8787`, web on `http://localhost:5173`.
 
-In the web app Settings, set API URL to `http://localhost:8787` and enter any string as the API key (local Wrangler doesn't enforce it by default — add `[vars] API_KEY = "dev"` to `wrangler.toml` for local auth).
+The Worker answers 401 on `/api` and `/mcp` until `API_KEY` is set. For local development pass one on the command line, `cd api && pnpm exec wrangler dev --var API_KEY:dev`, then in the web app Settings set API URL to `http://localhost:8787` and the API key to `dev`.
 
 ---
 
@@ -408,11 +420,12 @@ In the web app Settings, set API URL to `http://localhost:8787` and enter any st
 See [`api/src/db/schema.sql`](api/src/db/schema.sql) for the full D1 schema.
 
 ```
-ideas          id | type | title | url | summary | r2_key | created_at | updated_at
+ideas          id | type | title | url | summary | body | r2_key | created_at | updated_at
 connections    id | from_id | to_id | label | created_at
 notes          id | idea_id | body | created_at | updated_at
 media          id | idea_id | r2_key | filename | mime_type | size_bytes | created_at
-ideas_fts      FTS5 virtual table on title + summary (auto-synced via triggers)
+ideas_fts      FTS5 virtual table on title + summary + body (auto-synced via triggers)
+messages       id | body | sender | created_at
 oauth_clients  client_id | redirect_uris | created_at
 oauth_codes    code | client_id | redirect_uri | code_challenge | code_challenge_method | created_at | expires_at
 oauth_tokens   token | client_id | created_at

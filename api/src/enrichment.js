@@ -283,7 +283,11 @@ async function formatAsMarkdown(env, idea, data) {
     const formatted = response?.response?.trim();
     if (!formatted) return;
 
-    const updated = { ...data, text: formatted, markdown: true };
+    // The model took its time: write onto the blob as it is now, and not at all if the text was edited meanwhile.
+    const current = (await getJson(env.R2, idea.r2_key)) ?? {};
+    if (current.text !== text) return;
+
+    const updated = { ...current, text: formatted, markdown: true };
     await putJson(env.R2, idea.r2_key, updated);
 
     // Re-project body so FTS picks up the formatted text.

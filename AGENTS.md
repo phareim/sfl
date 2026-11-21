@@ -17,8 +17,8 @@ Deploys entirely to Cloudflare (Worker + Pages + D1 + R2). Single-user. Push to 
 | macOS | Swift menu bar app — global hotkey (⌃⌥I), text grabber, type/tag/project picker |
 | CLI | Node.js `sfl` command — browse and search ideas from the terminal |
 | MCP | Streamable HTTP at `/mcp`; OAuth 2.0 server at `/oauth` for Claude.ai |
-| AI | Workers AI (`@cf/meta/llama-3.1-8b-instruct`) — enrichment + chat replies |
-| Chat | Persistent message thread via D1; AI replies or webhook forwarding |
+| AI | Workers AI (`@cf/meta/llama-3.1-8b-instruct-fp8`, set in `api/src/lib/ai.js`) — enrichment + chat replies |
+| Chat | Persistent message thread via D1; AI replies, or forwarding to `CHAT_WEBHOOK_URL` when that is set |
 
 **The API and data model are the center of the service.** All other layers feed data in and out of the API.
 
@@ -61,7 +61,7 @@ cd api && pnpm run db:init                # apply schema to remote D1
 cd api && pnpm run db:init:local          # apply schema to local D1
 ```
 
-Tests: `pnpm test` at the repo root (vitest). No linter or formatter is configured.
+Tests: `pnpm test` at the repo root (vitest). The suites that run the real schema (`api/test/sqlite-d1.js`) use `node:sqlite` and skip on a Node older than 22.5. Lint and format: `pnpm lint` and `pnpm format` (Biome, `biome.json`).
 
 ## Conventions
 

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import app from '../src/app.js';
 import { createMockEnv } from './helpers.js';
 
@@ -7,6 +7,15 @@ const executionCtx = { waitUntil: () => {}, passThroughOnException: () => {} };
 
 beforeEach(() => {
   env = createMockEnv();
+  // Saving a page fetches its article in the background; keep that off the network.
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async () => ({ ok: false, headers: { get: () => null } })),
+  );
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
 });
 
 function req(path, options = {}) {
@@ -135,5 +144,71 @@ describe('summary enrichment', () => {
 
     const row = env.DB._tables.ideas.find((r) => r.id === idea.id);
     expect(row.summary).toBeNull();
+  });
+});
+
+describe('writes that follow a slow call', () => {
+  const LONG =
+    'A first draft of a note that is comfortably longer than one hundred characters, so the formatter takes it on.';
+  let background;
+
+  beforeEach(() => {
+    background = [];
+    executionCtx.waitUntil = (p) => background.push(p);
+    // Silent while the idea is saved: the enrichment that runs on save changes nothing.
+    env.AI = { run: async () => ({ response: '' }) };
+  });
+
+  afterEach(() => {
+    executionCtx.waitUntil = () => {};
+  });
+
+  // Save an idea and let the enrichment that save started run to its end.
+  async function createSettled(body) {
+    const idea = await createIdea(body);
+    await Promise.all(background);
+    return idea;
+  }
+
+  it('markdown formatting rewrites data.text and marks the blob', async () => {
+    const idea = await createSettled({ type: 'note', title: 'Draft', data: { text: LONG, source: 'inbox' } });
+    env.AI = { run: async () => ({ response: `# Draft\n\n${LONG}` }) };
+
+    await req(`/api/ideas/${idea.id}/enrich?mode=markdown`, { method: 'POST' });
+
+    const { data } = await (await req(`/api/ideas/${idea.id}`)).json();
+    expect(data).toEqual({ text: `# Draft\n\n${LONG}`, source: 'inbox', markdown: true });
+  });
+
+  it('markdown formatting does not write back over an edit made while the model was working', async () => {
+    const idea = await createSettled({ type: 'note', title: 'Draft', data: { text: LONG } });
+    env.AI = {
+      run: async () => {
+        await req(`/api/ideas/${idea.id}`, { method: 'PUT', body: { data: { text: 'The edited text.' } } });
+        return { response: `# Draft\n\n${LONG}` };
+      },
+    };
+
+    await req(`/api/ideas/${idea.id}/enrich?mode=markdown`, { method: 'POST' });
+
+    const { data } = await (await req(`/api/ideas/${idea.id}`)).json();
+    expect(data).toEqual({ text: 'The edited text.' });
+  });
+
+  it('fetch-content does not write back over an edit made while the page was being fetched', async () => {
+    const idea = await createSettled({ type: 'page', title: 'An article', url: 'https://slow.example.com/a' });
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => {
+        await req(`/api/ideas/${idea.id}`, { method: 'PUT', body: { data: { selected_text: 'added meanwhile' } } });
+        return { ok: false, headers: { get: () => null } };
+      }),
+    );
+
+    const res = await req(`/api/ideas/${idea.id}/fetch-content`, { method: 'POST' });
+    expect(res.status).toBe(200);
+
+    const { data } = await (await req(`/api/ideas/${idea.id}`)).json();
+    expect(data).toEqual({ selected_text: 'added meanwhile', article: false });
   });
 });

@@ -15,7 +15,7 @@ connections.post('/', async (c) => {
     return badRequest('Invalid JSON');
   }
 
-  const { from_id, to_id, label } = body;
+  const { from_id, to_id, label } = body ?? {};
   if (!from_id || !to_id) return badRequest('from_id and to_id are required');
 
   // Verify both ideas exist

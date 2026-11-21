@@ -57,6 +57,15 @@ export function projectBody(kind, blob, notesRow) {
 }
 
 /**
+ * The page size a caller asked for, at most 100. Anything that is no positive whole number is the default: SQLite
+ * reads a negative LIMIT as no limit at all and refuses a fraction.
+ */
+function pageSize(limit) {
+  const n = Number(limit);
+  return Number.isInteger(n) && n > 0 ? Math.min(n, 100) : 20;
+}
+
+/**
  * Insert a new idea row.
  */
 export async function insertIdea(db, { id, type, title, url, summary, body, r2_key, created_at, updated_at }) {
@@ -104,7 +113,7 @@ export async function getIdeaByUrl(db, url, type) {
  * Returns { ideas, nextCursor }
  */
 export async function listIdeas(db, { type, tag, url, limit = 20, cursor } = {}) {
-  limit = Math.min(Number(limit) || 20, 100);
+  limit = pageSize(limit);
 
   let sql;
   let params;
@@ -220,7 +229,7 @@ export function ftsQuery(input) {
 }
 
 export async function searchIdeas(db, query, { limit = 20 } = {}) {
-  limit = Math.min(Number(limit) || 20, 100);
+  limit = pageSize(limit);
   const match = ftsQuery(query);
   if (!match) return [];
   const { results } = await db

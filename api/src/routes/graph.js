@@ -29,21 +29,16 @@ graph.get('/:id/neighbors', async (c) => {
 
   const connections = await getIdeaConnections(c.env.DB, id);
 
-  // Collect neighbor IDs
-  const neighborIds = new Set();
-  for (const conn of connections) {
-    if (conn.from_id !== id) neighborIds.add(conn.from_id);
-    if (conn.to_id !== id) neighborIds.add(conn.to_id);
-  }
-
-  let neighbors = [];
-  if (neighborIds.size > 0) {
-    const placeholders = [...neighborIds].map(() => '?').join(', ');
-    const { results } = await c.env.DB.prepare(`SELECT id, type, title, url FROM ideas WHERE id IN (${placeholders})`)
-      .bind(...neighborIds)
-      .all();
-    neighbors = results;
-  }
+  // The neighbours in one statement with three parameters, however many there are: D1 takes at most 100 bound
+  // parameters, and a tag is easily carried by more ideas than that.
+  const { results: neighbors } = await c.env.DB.prepare(
+    `SELECT id, type, title, url FROM ideas
+      WHERE id != ?
+        AND id IN (SELECT from_id FROM connections WHERE to_id = ?
+                   UNION SELECT to_id FROM connections WHERE from_id = ?)`,
+  )
+    .bind(id, id, id)
+    .all();
 
   return c.json({ idea, connections, neighbors });
 });

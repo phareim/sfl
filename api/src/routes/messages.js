@@ -7,7 +7,9 @@ const messages = new Hono();
 
 // GET /api/messages?limit=50&cursor=<timestamp>
 messages.get('/', async (c) => {
-  const limit = Math.min(parseInt(c.req.query('limit') ?? '50', 10), 100);
+  // Anything that is no positive number is the default: SQLite reads a negative LIMIT as no limit at all.
+  const asked = parseInt(c.req.query('limit') ?? '50', 10);
+  const limit = asked > 0 ? Math.min(asked, 100) : 50;
   const cursor = c.req.query('cursor');
 
   let rows;
@@ -38,8 +40,8 @@ messages.post('/', async (c) => {
     return badRequest('Invalid JSON');
   }
 
-  const { body: msgBody, sender } = body;
-  if (!msgBody?.trim()) return badRequest('body is required');
+  const { body: msgBody, sender } = body ?? {};
+  if (typeof msgBody !== 'string' || !msgBody.trim()) return badRequest('body is required');
 
   // Allow "sleeper" sender to post replies without triggering webhooks/AI
   if (sender === 'sleeper') {
@@ -59,8 +61,7 @@ messages.post('/', async (c) => {
 
   const message = { id, body: msgBody.trim(), sender: 'user', created_at: now };
 
-  // CHAT_WEBHOOK_URL is dedicated to chat forwarding — WEBHOOK_URL belongs to
-  // the saved-search cron and must not receive chat messages.
+  // CHAT_WEBHOOK_URL is dedicated to chat forwarding.
   if (c.env.CHAT_WEBHOOK_URL) {
     c.executionCtx.waitUntil(fireWebhook(c.env, message));
   } else {

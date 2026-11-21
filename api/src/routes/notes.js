@@ -29,7 +29,7 @@ notes.post('/', async (c) => {
     return badRequest('Invalid JSON');
   }
 
-  const { body: noteBody } = body;
+  const { body: noteBody } = body ?? {};
   if (!noteBody) return badRequest('body is required');
 
   const id = generateId();
@@ -56,7 +56,7 @@ notesStandalone.put('/:id', async (c) => {
     return badRequest('Invalid JSON');
   }
 
-  const { body: noteBody } = body;
+  const { body: noteBody } = body ?? {};
   if (!noteBody) return badRequest('body is required');
 
   await updateNote(c.env.DB, id, { body: noteBody, updated_at: Date.now() });

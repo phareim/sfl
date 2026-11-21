@@ -54,7 +54,7 @@ media.post('/fetch', async (c) => {
     return badRequest('Invalid JSON');
   }
 
-  const { url } = body;
+  const { url } = body ?? {};
   if (!url) return badRequest('url is required');
 
   let res;

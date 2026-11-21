@@ -177,6 +177,13 @@ async function executeTool(name, args, env, ctx) {
     }
 
     case 'capture_idea': {
+      // Check the tags before anything is written: a tag insert that fails after the note is saved reports an
+      // error for a note that exists, and the retry saves it a second time.
+      const tagIds = Array.isArray(args.tag_ids) ? [...new Set(args.tag_ids)] : [];
+      for (const tag_id of tagIds) {
+        if (!(await getIdea(env.DB, tag_id))) throw new Error(`Tag ${tag_id} not found`);
+      }
+
       const id = generateId();
       const now = Date.now();
       const r2Key = dataKey(id);
@@ -194,9 +201,9 @@ async function executeTool(name, args, env, ctx) {
         updated_at: now,
       });
 
-      if (args.tag_ids?.length) {
+      if (tagIds.length) {
         await Promise.all(
-          args.tag_ids.map((tag_id) =>
+          tagIds.map((tag_id) =>
             insertConnection(env.DB, {
               id: generateId(),
               from_id: id,
@@ -243,6 +250,8 @@ async function executeTool(name, args, env, ctx) {
     }
 
     case 'create_idea': {
+      if (!args.type) throw new Error('type is required');
+
       // Same URL dedup as REST POST /api/ideas: return the existing idea
       if (args.url) {
         const existing = await getIdeaByUrl(env.DB, args.url, args.type);
@@ -355,6 +364,8 @@ function rpcError(id, code, message) {
 }
 
 async function handleMessage(msg, env, ctx) {
+  if (msg === null || typeof msg !== 'object') return rpcError(null, -32600, 'Invalid Request');
+
   // Notifications have no id — acknowledge with null (caller returns 202)
   if (!('id' in msg)) return null;
 
@@ -409,6 +420,8 @@ export async function handleMcpRequest(c) {
     if (filtered.length === 0) return new Response(null, { status: 202 });
     return c.json(filtered);
   }
+
+  if (body === null || typeof body !== 'object') return c.json(rpcError(null, -32600, 'Invalid Request'), 400);
 
   const result = await handleMessage(body, c.env, c.executionCtx);
   if (result === null) return new Response(null, { status: 202 });

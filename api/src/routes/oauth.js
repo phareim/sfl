@@ -28,7 +28,7 @@ oauth.post('/register', async (c) => {
     return c.json({ error: 'invalid_request' }, 400);
   }
 
-  const { redirect_uris } = body;
+  const { redirect_uris } = body ?? {};
   if (!Array.isArray(redirect_uris) || redirect_uris.length === 0) {
     return c.json({ error: 'invalid_request', error_description: 'redirect_uris required' }, 400);
   }
@@ -61,7 +61,9 @@ oauth.get('/authorize', async (c) => {
     return c.json({ error: 'unsupported_response_type' }, 400);
   }
 
-  const client = await c.env.DB.prepare('SELECT * FROM oauth_clients WHERE client_id = ?').bind(client_id).first();
+  const client = await c.env.DB.prepare('SELECT * FROM oauth_clients WHERE client_id = ?')
+    .bind(client_id ?? null)
+    .first();
 
   if (!client) return c.json({ error: 'invalid_client' }, 400);
 
@@ -78,7 +80,8 @@ oauth.post('/authorize', async (c) => {
   const form = await c.req.parseBody();
   const { client_id, redirect_uri, state, code_challenge, code_challenge_method, api_key } = form;
 
-  if (api_key !== c.env.API_KEY) {
+  // An unset API_KEY approves nothing: without this, a form with no api_key field equals it.
+  if (!c.env.API_KEY || api_key !== c.env.API_KEY) {
     return c.html(
       authorizePage({
         client_id,
@@ -92,9 +95,16 @@ oauth.post('/authorize', async (c) => {
     );
   }
 
-  const client = await c.env.DB.prepare('SELECT * FROM oauth_clients WHERE client_id = ?').bind(client_id).first();
+  const client = await c.env.DB.prepare('SELECT * FROM oauth_clients WHERE client_id = ?')
+    .bind(client_id ?? null)
+    .first();
 
   if (!client) return c.json({ error: 'invalid_client' }, 400);
+
+  // The form's hidden fields are the caller's to change: check the redirect again before a code goes there.
+  if (!JSON.parse(client.redirect_uris).includes(redirect_uri)) {
+    return c.json({ error: 'invalid_request', error_description: 'redirect_uri mismatch' }, 400);
+  }
 
   const code = generateId();
   const now = Date.now();
@@ -123,14 +133,16 @@ oauth.post('/token', async (c) => {
     return c.json({ error: 'invalid_request' }, 400);
   }
 
-  const { grant_type, code, redirect_uri, client_id, code_verifier } = body;
+  const { grant_type, code, redirect_uri, client_id, code_verifier } = body ?? {};
 
   if (grant_type !== 'authorization_code') {
     return c.json({ error: 'unsupported_grant_type' }, 400);
   }
 
   const now = Date.now();
-  const authCode = await c.env.DB.prepare('SELECT * FROM oauth_codes WHERE code = ?').bind(code).first();
+  const authCode = await c.env.DB.prepare('SELECT * FROM oauth_codes WHERE code = ?')
+    .bind(code ?? null)
+    .first();
 
   if (!authCode) return c.json({ error: 'invalid_grant' }, 400);
   if (authCode.client_id !== client_id) return c.json({ error: 'invalid_grant' }, 400);
@@ -148,8 +160,10 @@ oauth.post('/token', async (c) => {
     }
   }
 
-  // Single-use: delete the code
-  await c.env.DB.prepare('DELETE FROM oauth_codes WHERE code = ?').bind(code).run();
+  // Single-use: the delete is the claim. Of two requests holding the same code, only the one whose delete
+  // removed the row gets a token.
+  const claimed = await c.env.DB.prepare('DELETE FROM oauth_codes WHERE code = ?').bind(code).run();
+  if (!claimed?.meta?.changes) return c.json({ error: 'invalid_grant' }, 400);
 
   // Issue access token
   const token = generateId() + generateId();
